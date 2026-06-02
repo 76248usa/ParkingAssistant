@@ -1,98 +1,102 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+"use client";
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import React, { useState } from "react";
+import { Text, View } from "react-native";
+import { GuidanceCard } from "../components/GuidanceCard";
+import { ParkingTypeSelector } from "../components/ParkingTypeSelector";
+import { RigSetupCard } from "../components/RigSetupCard";
+import { ParkingType, guidanceByType } from "../constants/parkingGuidance";
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
+export default function Index() {
+  const [truckLength, setTruckLength] = useState("20");
+  const [trailerLength, setTrailerLength] = useState("30");
+  const [parkingType, setParkingType] = useState<ParkingType>("back-in");
+  const [stepIndex, setStepIndex] = useState(0);
+
+  const totalLength = (Number(truckLength) || 0) + (Number(trailerLength) || 0);
+
+  const steps = guidanceByType[parkingType];
+  const currentStep = steps[stepIndex];
+
+  const steeringGuidance =
+    stepIndex === 0
+      ? "↑ KEEP STRAIGHT"
+      : stepIndex === 1
+        ? "↶ TURN LEFT"
+        : stepIndex === 2
+          ? "↷ TURN RIGHT"
+          : stepIndex === 3
+            ? "↑ STRAIGHTEN WHEEL"
+            : "🛑 STOP";
+
+  const bannerColor = steeringGuidance === "🛑 STOP" ? "#dc2626" : "#0891b2";
+
+  function selectParkingType(type: ParkingType) {
+    setParkingType(type);
+    setStepIndex(0);
   }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
+
+  function goBack() {
+    setStepIndex((current) => Math.max(0, current - 1));
   }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+
+  function goNext() {
+    setStepIndex((current) => Math.min(steps.length - 1, current + 1));
+  }
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
+    <View
+      style={{
+        flex: 1,
+        padding: 24,
+        backgroundColor: "#f8fafc",
+      }}
+    >
+      <Text style={{ fontSize: 28, fontWeight: "bold" }}>
+        RV Parking Assistant
+      </Text>
+
+      <GuidanceCard
+        currentStep={currentStep}
+        stepIndex={stepIndex}
+        totalSteps={steps.length}
+        goBack={goBack}
+        goNext={goNext}
+      />
+
+      <View
+        style={{
+          marginTop: 14,
+          backgroundColor: bannerColor,
+          borderRadius: 16,
+          paddingVertical: 16,
+          paddingHorizontal: 12,
+        }}
+      >
+        <Text
+          style={{
+            color: "white",
+            textAlign: "center",
+            fontSize: 26,
+            fontWeight: "900",
+          }}
+        >
+          {steeringGuidance}
+        </Text>
+      </View>
+
+      <RigSetupCard
+        truckLength={truckLength}
+        trailerLength={trailerLength}
+        totalLength={totalLength}
+        setTruckLength={setTruckLength}
+        setTrailerLength={setTrailerLength}
+      />
+
+      <ParkingTypeSelector
+        parkingType={parkingType}
+        selectParkingType={selectParkingType}
+      />
+    </View>
   );
 }
-
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
-});

@@ -1,11 +1,11 @@
 "use client";
 
+import * as Speech from "expo-speech";
+import { useEffect, useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { GuidanceStep } from "../constants/parkingGuidance";
 import { ParkingDiagram } from "./ParkingDiagram";
 import { SteeringWheel } from "./SteeringWheel";
-// Keep this commented out until we fix layout/scrolling.
-// import { ParkingDiagram } from "./ParkingDiagram";
 
 type Props = {
   currentStep: GuidanceStep;
@@ -32,8 +32,29 @@ export function GuidanceCard({
           : stepIndex === 3
             ? "↑ STRAIGHTEN WHEEL"
             : "🛑 STOP";
-
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
   const steeringAngle = stepIndex === 1 ? -35 : stepIndex === 2 ? 35 : 0;
+
+  const voicePrompt =
+    currentStep.voicePrompt ?? `${steeringGuidance}. ${currentStep.title}`;
+  useEffect(() => {
+    if (!voiceEnabled) {
+      Speech.stop();
+      return;
+    }
+
+    Speech.stop();
+
+    Speech.speak(voicePrompt, {
+      language: "en-US",
+      rate: 0.9,
+      pitch: 1.0,
+    });
+
+    return () => {
+      Speech.stop();
+    };
+  }, [voicePrompt, voiceEnabled]);
 
   const steeringLabel =
     stepIndex === 1
@@ -91,6 +112,54 @@ export function GuidanceCard({
       </View>
 
       <SteeringWheel steeringAngle={steeringAngle} label={steeringLabel} />
+      <TouchableOpacity
+        onPress={() => {
+          Speech.stop();
+          setVoiceEnabled((current) => !current);
+        }}
+        style={{
+          marginTop: 12,
+          padding: 12,
+          borderRadius: 12,
+          backgroundColor: voiceEnabled ? "#0f172a" : "#64748b",
+        }}
+      >
+        <Text
+          style={{
+            color: "white",
+            textAlign: "center",
+            fontWeight: "900",
+          }}
+        >
+          {voiceEnabled ? "🔊 Voice On" : "🔇 Voice Off"}
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={() => {
+          Speech.stop();
+          Speech.speak(voicePrompt, {
+            language: "en-US",
+            rate: 0.9,
+            pitch: 1.0,
+          });
+        }}
+        style={{
+          marginTop: 12,
+          padding: 12,
+          borderRadius: 12,
+          backgroundColor: "#0f172a",
+        }}
+      >
+        <Text
+          style={{
+            color: "white",
+            textAlign: "center",
+            fontWeight: "900",
+          }}
+        >
+          🔊 Repeat Voice Prompt
+        </Text>
+      </TouchableOpacity>
 
       <Text
         style={{

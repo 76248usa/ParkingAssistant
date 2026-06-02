@@ -3,11 +3,16 @@ import { Animated, Easing, Text, View } from "react-native";
 
 type Props = {
   stepIndex: number;
+  backingSide: "left" | "right";
 };
 
-export function ParkingDiagram({ stepIndex }: Props) {
-  const trailerAngle =
+export function ParkingDiagram({ stepIndex, backingSide }: Props) {
+  const sideMultiplier = backingSide === "left" ? 1 : -1;
+
+  const baseTrailerAngle =
     stepIndex === 1 ? 22 : stepIndex === 2 ? -18 : stepIndex === 3 ? 6 : 0;
+
+  const trailerAngle = baseTrailerAngle * sideMultiplier;
 
   const animatedTrailerAngle = useRef(new Animated.Value(trailerAngle)).current;
 
@@ -39,7 +44,6 @@ export function ParkingDiagram({ stepIndex }: Props) {
         alignItems: "center",
       }}
     >
-      {/* Parking Space */}
       <View
         style={{
           position: "absolute",
@@ -56,7 +60,6 @@ export function ParkingDiagram({ stepIndex }: Props) {
         }}
       />
 
-      {/* Trailer */}
       <Animated.View
         style={{
           position: "absolute",
@@ -79,7 +82,6 @@ export function ParkingDiagram({ stepIndex }: Props) {
         </Text>
       </Animated.View>
 
-      {/* Hitch */}
       <View
         style={{
           position: "absolute",
@@ -91,7 +93,6 @@ export function ParkingDiagram({ stepIndex }: Props) {
         }}
       />
 
-      {/* Truck */}
       <View
         style={{
           position: "absolute",
@@ -112,13 +113,26 @@ export function ParkingDiagram({ stepIndex }: Props) {
       <Text
         style={{
           position: "absolute",
+          top: 8,
+          left: 12,
+          color: "#0f172a",
+          fontSize: 12,
+          fontWeight: "900",
+        }}
+      >
+        {backingSide === "left" ? "Left-side back-in" : "Right-side back-in"}
+      </Text>
+
+      <Text
+        style={{
+          position: "absolute",
           bottom: 8,
           color: "#64748b",
           fontSize: 12,
           fontWeight: "600",
         }}
       >
-        Animated parking view
+        Trailer angle: {trailerAngle}°
       </Text>
     </View>
   );

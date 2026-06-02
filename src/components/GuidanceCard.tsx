@@ -13,6 +13,8 @@ type Props = {
   totalSteps: number;
   goBack: () => void;
   goNext: () => void;
+  backingSide: "left" | "right";
+  setBackingSide: (side: "left" | "right") => void;
 };
 
 export function GuidanceCard({
@@ -21,22 +23,73 @@ export function GuidanceCard({
   totalSteps,
   goBack,
   goNext,
+  backingSide,
+  setBackingSide,
 }: Props) {
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+
+  const sideMultiplier = backingSide === "left" ? 1 : -1;
+
   const steeringGuidance =
     stepIndex === 0
       ? "↑ KEEP STRAIGHT"
       : stepIndex === 1
-        ? "↶ TURN LEFT"
+        ? backingSide === "left"
+          ? "↶ TURN LEFT"
+          : "↷ TURN RIGHT"
         : stepIndex === 2
-          ? "↷ TURN RIGHT"
+          ? backingSide === "left"
+            ? "↷ TURN RIGHT"
+            : "↶ TURN LEFT"
           : stepIndex === 3
             ? "↑ STRAIGHTEN WHEEL"
             : "🛑 STOP";
-  const [voiceEnabled, setVoiceEnabled] = useState(true);
-  const steeringAngle = stepIndex === 1 ? -35 : stepIndex === 2 ? 35 : 0;
+
+  const steeringAngle =
+    stepIndex === 1
+      ? -35 * sideMultiplier
+      : stepIndex === 2
+        ? 35 * sideMultiplier
+        : 0;
+
+  const steeringLabel =
+    stepIndex === 1
+      ? backingSide === "left"
+        ? "Turn Left"
+        : "Turn Right"
+      : stepIndex === 2
+        ? backingSide === "left"
+          ? "Turn Right"
+          : "Turn Left"
+        : stepIndex === 3
+          ? "Straighten"
+          : stepIndex >= 4
+            ? "Stop"
+            : "Straight";
+
+  const trainingFeedback =
+    stepIndex === 0
+      ? "GOOD SETUP"
+      : stepIndex === 1
+        ? "TRAILER STARTING TO TURN"
+        : stepIndex === 2
+          ? "FOLLOW THE TRAILER"
+          : stepIndex === 3
+            ? "STRAIGHTEN NOW"
+            : "STOP AND CHECK";
+
+  const feedbackColor =
+    stepIndex === totalSteps - 1
+      ? "#dc2626"
+      : stepIndex === 3
+        ? "#f97316"
+        : "#16a34a";
+
+  const bannerColor = steeringGuidance === "🛑 STOP" ? "#dc2626" : "#0891b2";
 
   const voicePrompt =
     currentStep.voicePrompt ?? `${steeringGuidance}. ${currentStep.title}`;
+
   useEffect(() => {
     if (!voiceEnabled) {
       Speech.stop();
@@ -55,19 +108,6 @@ export function GuidanceCard({
       Speech.stop();
     };
   }, [voicePrompt, voiceEnabled]);
-
-  const steeringLabel =
-    stepIndex === 1
-      ? "Turn Left"
-      : stepIndex === 2
-        ? "Turn Right"
-        : stepIndex === 3
-          ? "Straighten"
-          : stepIndex >= 4
-            ? "Stop"
-            : "Straight";
-
-  const bannerColor = steeringGuidance === "🛑 STOP" ? "#dc2626" : "#0891b2";
 
   return (
     <View
@@ -111,7 +151,60 @@ export function GuidanceCard({
         </Text>
       </View>
 
+      <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
+        {(["left", "right"] as const).map((side) => {
+          const selected = backingSide === side;
+
+          return (
+            <TouchableOpacity
+              key={side}
+              onPress={() => setBackingSide(side)}
+              style={{
+                flex: 1,
+                padding: 12,
+                borderRadius: 12,
+                backgroundColor: selected ? "#0f172a" : "white",
+                borderWidth: 1,
+                borderColor: selected ? "#0f172a" : "#cbd5e1",
+              }}
+            >
+              <Text
+                style={{
+                  textAlign: "center",
+                  fontWeight: "900",
+                  color: selected ? "white" : "#0f172a",
+                  fontSize: 12,
+                }}
+              >
+                {side === "left" ? "Left-side back-in" : "Right-side back-in"}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
       <SteeringWheel steeringAngle={steeringAngle} label={steeringLabel} />
+
+      <View
+        style={{
+          marginTop: 12,
+          padding: 12,
+          borderRadius: 12,
+          backgroundColor: feedbackColor,
+        }}
+      >
+        <Text
+          style={{
+            color: "white",
+            textAlign: "center",
+            fontWeight: "900",
+            fontSize: 16,
+          }}
+        >
+          {trainingFeedback}
+        </Text>
+      </View>
+
       <TouchableOpacity
         onPress={() => {
           Speech.stop();
@@ -134,6 +227,7 @@ export function GuidanceCard({
           {voiceEnabled ? "🔊 Voice On" : "🔇 Voice Off"}
         </Text>
       </TouchableOpacity>
+
       <TouchableOpacity
         onPress={() => {
           Speech.stop();
@@ -257,8 +351,7 @@ export function GuidanceCard({
         </TouchableOpacity>
       </View>
 
-      {/* Re-enable later after layout/scrolling is fixed */}
-      <ParkingDiagram stepIndex={stepIndex} />
+      <ParkingDiagram stepIndex={stepIndex} backingSide={backingSide} />
     </View>
   );
 }

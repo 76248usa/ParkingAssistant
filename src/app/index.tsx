@@ -12,7 +12,7 @@ export default function Index() {
   const [trailerLength, setTrailerLength] = useState("30");
   const [parkingType, setParkingType] = useState<ParkingType>("back-in");
   const [stepIndex, setStepIndex] = useState(0);
-
+  const [backingSide, setBackingSide] = useState<"left" | "right">("left");
   const totalLength = (Number(truckLength) || 0) + (Number(trailerLength) || 0);
 
   const steps = guidanceByType[parkingType];
@@ -60,6 +60,8 @@ export default function Index() {
         currentStep={currentStep}
         stepIndex={stepIndex}
         totalSteps={steps.length}
+        backingSide={backingSide}
+        setBackingSide={setBackingSide}
         goBack={goBack}
         goNext={goNext}
       />

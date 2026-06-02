@@ -4,8 +4,11 @@ import * as Speech from "expo-speech";
 import { useEffect, useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { GuidanceStep } from "../constants/parkingGuidance";
+import { HitchAngleIndicator } from "./HitchAngleIndicator";
 import { ParkingDiagram } from "./ParkingDiagram";
+import { SteeringAmountIndicator } from "./SteeringAmountIndicator";
 import { SteeringWheel } from "./SteeringWheel";
+import { TrainingScoreCard } from "./TrainingScoreCard";
 
 type Props = {
   currentStep: GuidanceStep;
@@ -51,6 +54,24 @@ export function GuidanceCard({
       : stepIndex === 2
         ? 35 * sideMultiplier
         : 0;
+
+  const trailerAngle =
+    stepIndex === 1
+      ? 22 * sideMultiplier
+      : stepIndex === 2
+        ? -18 * sideMultiplier
+        : stepIndex === 3
+          ? 6 * sideMultiplier
+          : 0;
+
+  const truckAngle =
+    stepIndex === 1
+      ? -10 * sideMultiplier
+      : stepIndex === 2
+        ? 12 * sideMultiplier
+        : stepIndex === 3
+          ? 4 * sideMultiplier
+          : 0;
 
   const steeringLabel =
     stepIndex === 1
@@ -183,7 +204,67 @@ export function GuidanceCard({
         })}
       </View>
 
+      <View
+        style={{
+          flexDirection: "row",
+          gap: 10,
+          marginTop: 12,
+        }}
+      >
+        <TouchableOpacity
+          onPress={goBack}
+          disabled={stepIndex === 0}
+          style={{
+            flex: 1,
+            padding: 14,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: "#ccc",
+            backgroundColor: stepIndex === 0 ? "#f1f5f9" : "white",
+            opacity: stepIndex === 0 ? 0.5 : 1,
+          }}
+        >
+          <Text style={{ textAlign: "center", fontWeight: "bold" }}>Back</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={goNext}
+          disabled={stepIndex === totalSteps - 1}
+          style={{
+            flex: 1,
+            padding: 14,
+            borderRadius: 10,
+            backgroundColor:
+              stepIndex === totalSteps - 1 ? "#94a3b8" : "#0891b2",
+          }}
+        >
+          <Text
+            style={{
+              textAlign: "center",
+              fontWeight: "bold",
+              color: "white",
+            }}
+          >
+            {stepIndex === totalSteps - 1 ? "Done" : "Next"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <SteeringWheel steeringAngle={steeringAngle} label={steeringLabel} />
+
+      <SteeringAmountIndicator steeringAngle={steeringAngle} />
+      <HitchAngleIndicator
+        truckAngle={truckAngle}
+        trailerAngle={trailerAngle}
+      />
+
+      <TrainingScoreCard
+        stepIndex={stepIndex}
+        totalSteps={totalSteps}
+        steeringAngle={steeringAngle}
+        truckAngle={truckAngle}
+        trailerAngle={trailerAngle}
+      />
 
       <View
         style={{
@@ -205,55 +286,65 @@ export function GuidanceCard({
         </Text>
       </View>
 
-      <TouchableOpacity
-        onPress={() => {
-          Speech.stop();
-          setVoiceEnabled((current) => !current);
-        }}
+      <View
         style={{
+          flexDirection: "row",
+          gap: 10,
           marginTop: 12,
-          padding: 12,
-          borderRadius: 12,
-          backgroundColor: voiceEnabled ? "#0f172a" : "#64748b",
         }}
       >
-        <Text
+        <TouchableOpacity
+          onPress={() => {
+            Speech.stop();
+            setVoiceEnabled((current) => !current);
+          }}
           style={{
-            color: "white",
-            textAlign: "center",
-            fontWeight: "900",
+            flex: 1,
+            padding: 12,
+            borderRadius: 12,
+            backgroundColor: voiceEnabled ? "#0f172a" : "#64748b",
           }}
         >
-          {voiceEnabled ? "🔊 Voice On" : "🔇 Voice Off"}
-        </Text>
-      </TouchableOpacity>
+          <Text
+            style={{
+              color: "white",
+              textAlign: "center",
+              fontWeight: "900",
+              fontSize: 12,
+            }}
+          >
+            {voiceEnabled ? "🔊 Voice On" : "🔇 Voice Off"}
+          </Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        onPress={() => {
-          Speech.stop();
-          Speech.speak(voicePrompt, {
-            language: "en-US",
-            rate: 0.9,
-            pitch: 1.0,
-          });
-        }}
-        style={{
-          marginTop: 12,
-          padding: 12,
-          borderRadius: 12,
-          backgroundColor: "#0f172a",
-        }}
-      >
-        <Text
+        <TouchableOpacity
+          onPress={() => {
+            Speech.stop();
+            Speech.speak(voicePrompt, {
+              language: "en-US",
+              rate: 0.9,
+              pitch: 1.0,
+            });
+          }}
           style={{
-            color: "white",
-            textAlign: "center",
-            fontWeight: "900",
+            flex: 1,
+            padding: 12,
+            borderRadius: 12,
+            backgroundColor: "#0f172a",
           }}
         >
-          🔊 Repeat Voice Prompt
-        </Text>
-      </TouchableOpacity>
+          <Text
+            style={{
+              color: "white",
+              textAlign: "center",
+              fontWeight: "900",
+              fontSize: 12,
+            }}
+          >
+            🔁 Repeat
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       <Text
         style={{
@@ -305,7 +396,7 @@ export function GuidanceCard({
           marginTop: 18,
         }}
       >
-        <TouchableOpacity
+        {/* <TouchableOpacity
           onPress={goBack}
           disabled={stepIndex === 0}
           style={{
@@ -326,9 +417,9 @@ export function GuidanceCard({
           >
             Back
           </Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
 
-        <TouchableOpacity
+        {/* <TouchableOpacity
           onPress={goNext}
           disabled={stepIndex === totalSteps - 1}
           style={{
@@ -348,9 +439,8 @@ export function GuidanceCard({
           >
             {stepIndex === totalSteps - 1 ? "Done" : "Next"}
           </Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </View>
-
       <ParkingDiagram stepIndex={stepIndex} backingSide={backingSide} />
     </View>
   );

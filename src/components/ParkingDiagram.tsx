@@ -12,29 +12,47 @@ export function ParkingDiagram({ stepIndex, backingSide }: Props) {
   const baseTrailerAngle =
     stepIndex === 1 ? 22 : stepIndex === 2 ? -18 : stepIndex === 3 ? 6 : 0;
 
+  const baseTruckAngle =
+    stepIndex === 1 ? -10 : stepIndex === 2 ? 12 : stepIndex === 3 ? 4 : 0;
+
   const trailerAngle = baseTrailerAngle * sideMultiplier;
+  const truckAngle = baseTruckAngle * sideMultiplier;
 
   const animatedTrailerAngle = useRef(new Animated.Value(trailerAngle)).current;
+  const animatedTruckAngle = useRef(new Animated.Value(truckAngle)).current;
 
   useEffect(() => {
-    Animated.timing(animatedTrailerAngle, {
-      toValue: trailerAngle,
-      duration: 600,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  }, [trailerAngle, animatedTrailerAngle]);
+    Animated.parallel([
+      Animated.timing(animatedTrailerAngle, {
+        toValue: trailerAngle,
+        duration: 600,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(animatedTruckAngle, {
+        toValue: truckAngle,
+        duration: 600,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [trailerAngle, truckAngle, animatedTrailerAngle, animatedTruckAngle]);
 
   const trailerRotation = animatedTrailerAngle.interpolate({
     inputRange: [-45, 45],
     outputRange: ["-45deg", "45deg"],
   });
 
+  const truckRotation = animatedTruckAngle.interpolate({
+    inputRange: [-25, 25],
+    outputRange: ["-25deg", "25deg"],
+  });
+
   return (
     <View
       style={{
         marginTop: 20,
-        height: 180,
+        height: 210,
         borderRadius: 16,
         backgroundColor: "#f8fafc",
         borderWidth: 1,
@@ -44,13 +62,14 @@ export function ParkingDiagram({ stepIndex, backingSide }: Props) {
         alignItems: "center",
       }}
     >
+      {/* Parking space */}
       <View
         style={{
           position: "absolute",
           right: 24,
-          top: 18,
+          top: 22,
           width: 110,
-          height: 145,
+          height: 155,
           borderLeftWidth: 4,
           borderRightWidth: 4,
           borderBottomWidth: 4,
@@ -60,6 +79,59 @@ export function ParkingDiagram({ stepIndex, backingSide }: Props) {
         }}
       />
 
+      {/* Predicted trailer path */}
+      <View
+        style={{
+          position: "absolute",
+          left: backingSide === "left" ? 68 : 92,
+          top: 118,
+          width: 155,
+          height: 4,
+          borderRadius: 999,
+          backgroundColor: "#f97316",
+          opacity: 0.85,
+          transform: [
+            {
+              rotate:
+                stepIndex === 1
+                  ? `${28 * sideMultiplier}deg`
+                  : stepIndex === 2
+                    ? `${-20 * sideMultiplier}deg`
+                    : stepIndex === 3
+                      ? `${8 * sideMultiplier}deg`
+                      : "0deg",
+            },
+          ],
+        }}
+      />
+
+      <View
+        style={{
+          position: "absolute",
+          left: backingSide === "left" ? 188 : 60,
+          top: 112,
+          width: 16,
+          height: 16,
+          borderRadius: 8,
+          backgroundColor: "#f97316",
+          opacity: 0.9,
+        }}
+      />
+
+      <Text
+        style={{
+          position: "absolute",
+          top: 38,
+          right: 34,
+          color: "#64748b",
+          fontSize: 10,
+          fontWeight: "900",
+        }}
+      >
+        PARKING SPACE
+      </Text>
+
+      {/* Trailer */}
       <Animated.View
         style={{
           position: "absolute",
@@ -82,18 +154,21 @@ export function ParkingDiagram({ stepIndex, backingSide }: Props) {
         </Text>
       </Animated.View>
 
-      <View
+      {/* Hitch */}
+      <Animated.View
         style={{
           position: "absolute",
-          left: 138,
-          width: 35,
+          left: 136,
+          width: 42,
           height: 6,
           borderRadius: 999,
           backgroundColor: "#64748b",
+          transform: [{ rotate: truckRotation }],
         }}
       />
 
-      <View
+      {/* Truck */}
+      <Animated.View
         style={{
           position: "absolute",
           left: 170,
@@ -103,12 +178,13 @@ export function ParkingDiagram({ stepIndex, backingSide }: Props) {
           backgroundColor: "#1e293b",
           justifyContent: "center",
           alignItems: "center",
+          transform: [{ rotate: truckRotation }],
         }}
       >
         <Text style={{ color: "white", fontWeight: "bold", fontSize: 12 }}>
           Truck
         </Text>
-      </View>
+      </Animated.View>
 
       <Text
         style={{
@@ -126,13 +202,25 @@ export function ParkingDiagram({ stepIndex, backingSide }: Props) {
       <Text
         style={{
           position: "absolute",
+          bottom: 24,
+          color: "#f97316",
+          fontSize: 12,
+          fontWeight: "900",
+        }}
+      >
+        Predicted trailer path
+      </Text>
+
+      <Text
+        style={{
+          position: "absolute",
           bottom: 8,
           color: "#64748b",
           fontSize: 12,
           fontWeight: "600",
         }}
       >
-        Trailer angle: {trailerAngle}°
+        Truck: {truckAngle}° | Trailer: {trailerAngle}°
       </Text>
     </View>
   );

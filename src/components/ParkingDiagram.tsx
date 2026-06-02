@@ -1,10 +1,30 @@
-import { Text, View } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { Animated, Easing, Text, View } from "react-native";
 
 type Props = {
   stepIndex: number;
 };
 
 export function ParkingDiagram({ stepIndex }: Props) {
+  const trailerAngle =
+    stepIndex === 1 ? 22 : stepIndex === 2 ? -18 : stepIndex === 3 ? 6 : 0;
+
+  const animatedTrailerAngle = useRef(new Animated.Value(trailerAngle)).current;
+
+  useEffect(() => {
+    Animated.timing(animatedTrailerAngle, {
+      toValue: trailerAngle,
+      duration: 600,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [trailerAngle, animatedTrailerAngle]);
+
+  const trailerRotation = animatedTrailerAngle.interpolate({
+    inputRange: [-45, 45],
+    outputRange: ["-45deg", "45deg"],
+  });
+
   return (
     <View
       style={{
@@ -19,6 +39,7 @@ export function ParkingDiagram({ stepIndex }: Props) {
         alignItems: "center",
       }}
     >
+      {/* Parking Space */}
       <View
         style={{
           position: "absolute",
@@ -35,7 +56,8 @@ export function ParkingDiagram({ stepIndex }: Props) {
         }}
       />
 
-      <View
+      {/* Trailer */}
+      <Animated.View
         style={{
           position: "absolute",
           left: 48,
@@ -46,18 +68,18 @@ export function ParkingDiagram({ stepIndex }: Props) {
           justifyContent: "center",
           alignItems: "center",
           transform: [
-            {
-              rotate:
-                stepIndex === 1 ? "20deg" : stepIndex === 2 ? "-15deg" : "0deg",
-            },
+            { translateX: 45 },
+            { rotate: trailerRotation },
+            { translateX: -45 },
           ],
         }}
       >
         <Text style={{ color: "white", fontWeight: "bold", fontSize: 12 }}>
           Trailer
         </Text>
-      </View>
+      </Animated.View>
 
+      {/* Hitch */}
       <View
         style={{
           position: "absolute",
@@ -69,6 +91,7 @@ export function ParkingDiagram({ stepIndex }: Props) {
         }}
       />
 
+      {/* Truck */}
       <View
         style={{
           position: "absolute",
@@ -95,7 +118,7 @@ export function ParkingDiagram({ stepIndex }: Props) {
           fontWeight: "600",
         }}
       >
-        Simplified parking view
+        Animated parking view
       </Text>
     </View>
   );

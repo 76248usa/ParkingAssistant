@@ -1,7 +1,11 @@
 "use client";
+
 import { Text, TouchableOpacity, View } from "react-native";
 import { GuidanceStep } from "../constants/parkingGuidance";
 import { ParkingDiagram } from "./ParkingDiagram";
+import { SteeringWheel } from "./SteeringWheel";
+// Keep this commented out until we fix layout/scrolling.
+// import { ParkingDiagram } from "./ParkingDiagram";
 
 type Props = {
   currentStep: GuidanceStep;
@@ -29,13 +33,26 @@ export function GuidanceCard({
             ? "↑ STRAIGHTEN WHEEL"
             : "🛑 STOP";
 
+  const steeringAngle = stepIndex === 1 ? -35 : stepIndex === 2 ? 35 : 0;
+
+  const steeringLabel =
+    stepIndex === 1
+      ? "Turn Left"
+      : stepIndex === 2
+        ? "Turn Right"
+        : stepIndex === 3
+          ? "Straighten"
+          : stepIndex >= 4
+            ? "Stop"
+            : "Straight";
+
   const bannerColor = steeringGuidance === "🛑 STOP" ? "#dc2626" : "#0891b2";
 
   return (
     <View
       style={{
-        marginTop: 25,
-        padding: 18,
+        marginTop: 18,
+        padding: 16,
         borderRadius: 16,
         backgroundColor: "#ecfeff",
         borderWidth: 1,
@@ -52,7 +69,6 @@ export function GuidanceCard({
         STEP {stepIndex + 1} OF {totalSteps}
       </Text>
 
-      {/* Steering Guidance Banner */}
       <View
         style={{
           marginTop: 12,
@@ -73,6 +89,8 @@ export function GuidanceCard({
           {steeringGuidance}
         </Text>
       </View>
+
+      <SteeringWheel steeringAngle={steeringAngle} label={steeringLabel} />
 
       <Text
         style={{
@@ -170,10 +188,8 @@ export function GuidanceCard({
         </TouchableOpacity>
       </View>
 
+      {/* Re-enable later after layout/scrolling is fixed */}
       <ParkingDiagram stepIndex={stepIndex} />
-      <Text style={{ marginTop: 10, color: "red", fontWeight: "bold" }}>
-        TEST: GuidanceCard updated
-      </Text>
     </View>
   );
 }

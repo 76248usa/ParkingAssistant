@@ -1,12 +1,14 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, Text, View } from "react-native";
+import { SiteObstacle } from "./SiteObstacleSelector";
 
 type Props = {
   stepIndex: number;
   backingSide: "left" | "right";
+  obstacles: SiteObstacle[];
 };
 
-export function ParkingDiagram({ stepIndex, backingSide }: Props) {
+export function ParkingDiagram({ stepIndex, backingSide, obstacles }: Props) {
   const sideMultiplier = backingSide === "left" ? 1 : -1;
 
   const baseTrailerAngle =
@@ -51,15 +53,12 @@ export function ParkingDiagram({ stepIndex, backingSide }: Props) {
   return (
     <View
       style={{
-        marginTop: 20,
-        height: 210,
+        height: 220,
+        backgroundColor: "#e5e7eb",
         borderRadius: 16,
-        backgroundColor: "#f8fafc",
-        borderWidth: 1,
-        borderColor: "#cbd5e1",
+        marginTop: 16,
         overflow: "hidden",
-        justifyContent: "center",
-        alignItems: "center",
+        position: "relative",
       }}
     >
       {/* Parking space */}
@@ -78,6 +77,63 @@ export function ParkingDiagram({ stepIndex, backingSide }: Props) {
           borderRadius: 10,
         }}
       />
+
+      {/* Obstacle icons */}
+      {obstacles.includes("treeLeft") && (
+        <Text
+          style={{
+            position: "absolute",
+            left: 10,
+            top: 80,
+            fontSize: 28,
+            zIndex: 5,
+          }}
+        >
+          🌳
+        </Text>
+      )}
+
+      {obstacles.includes("poleRight") && (
+        <Text
+          style={{
+            position: "absolute",
+            right: 10,
+            top: 80,
+            fontSize: 28,
+            zIndex: 5,
+          }}
+        >
+          🚧
+        </Text>
+      )}
+
+      {obstacles.includes("lowBranch") && (
+        <Text
+          style={{
+            position: "absolute",
+            top: 8,
+            alignSelf: "center",
+            fontSize: 28,
+            zIndex: 5,
+          }}
+        >
+          🌿
+        </Text>
+      )}
+
+      {obstacles.includes("tightHookupSide") && (
+        <Text
+          style={{
+            position: "absolute",
+            right: 20,
+            bottom: 20,
+            fontSize: 28,
+            zIndex: 5,
+          }}
+        >
+          ⚡
+        </Text>
+      )}
 
       {/* Predicted trailer path */}
       <View
@@ -136,6 +192,7 @@ export function ParkingDiagram({ stepIndex, backingSide }: Props) {
         style={{
           position: "absolute",
           left: 48,
+          top: 126,
           width: 90,
           height: 44,
           borderRadius: 10,
@@ -159,6 +216,7 @@ export function ParkingDiagram({ stepIndex, backingSide }: Props) {
         style={{
           position: "absolute",
           left: 136,
+          top: 145,
           width: 42,
           height: 6,
           borderRadius: 999,
@@ -172,6 +230,7 @@ export function ParkingDiagram({ stepIndex, backingSide }: Props) {
         style={{
           position: "absolute",
           left: 170,
+          top: 124,
           width: 80,
           height: 50,
           borderRadius: 12,
@@ -203,6 +262,7 @@ export function ParkingDiagram({ stepIndex, backingSide }: Props) {
         style={{
           position: "absolute",
           bottom: 24,
+          left: 12,
           color: "#f97316",
           fontSize: 12,
           fontWeight: "900",
@@ -215,6 +275,7 @@ export function ParkingDiagram({ stepIndex, backingSide }: Props) {
         style={{
           position: "absolute",
           bottom: 8,
+          left: 12,
           color: "#64748b",
           fontSize: 12,
           fontWeight: "600",

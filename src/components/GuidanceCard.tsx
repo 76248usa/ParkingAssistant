@@ -6,9 +6,12 @@ import { Text, TouchableOpacity, View } from "react-native";
 import { GuidanceStep } from "../constants/parkingGuidance";
 import { HitchAngleIndicator } from "./HitchAngleIndicator";
 import { ParkingDiagram } from "./ParkingDiagram";
+import { SiteObstacle } from "./SiteObstacleSelector";
 import { SteeringAmountIndicator } from "./SteeringAmountIndicator";
 import { SteeringWheel } from "./SteeringWheel";
 import { TrainingScoreCard } from "./TrainingScoreCard";
+
+type Scenario = "easy" | "normal" | "tight";
 
 type Props = {
   currentStep: GuidanceStep;
@@ -16,8 +19,12 @@ type Props = {
   totalSteps: number;
   goBack: () => void;
   goNext: () => void;
+  restartPractice: () => void;
   backingSide: "left" | "right";
   setBackingSide: (side: "left" | "right") => void;
+  scenario: Scenario;
+  setScenario: (scenario: Scenario) => void;
+  obstacles: SiteObstacle[];
 };
 
 export function GuidanceCard({
@@ -26,11 +33,14 @@ export function GuidanceCard({
   totalSteps,
   goBack,
   goNext,
+  restartPractice,
   backingSide,
   setBackingSide,
+  scenario,
+  setScenario,
+  obstacles,
 }: Props) {
   const [voiceEnabled, setVoiceEnabled] = useState(true);
-
   const sideMultiplier = backingSide === "left" ? 1 : -1;
 
   const steeringGuidance =
@@ -107,7 +117,6 @@ export function GuidanceCard({
         : "#16a34a";
 
   const bannerColor = steeringGuidance === "🛑 STOP" ? "#dc2626" : "#0891b2";
-
   const voicePrompt =
     currentStep.voicePrompt ?? `${steeringGuidance}. ${currentStep.title}`;
 
@@ -118,7 +127,6 @@ export function GuidanceCard({
     }
 
     Speech.stop();
-
     Speech.speak(voicePrompt, {
       language: "en-US",
       rate: 0.9,
@@ -141,13 +149,7 @@ export function GuidanceCard({
         borderColor: "#67e8f9",
       }}
     >
-      <Text
-        style={{
-          fontSize: 12,
-          fontWeight: "bold",
-          color: "#0e7490",
-        }}
-      >
+      <Text style={{ fontSize: 12, fontWeight: "bold", color: "#0e7490" }}>
         STEP {stepIndex + 1} OF {totalSteps}
       </Text>
 
@@ -173,44 +175,6 @@ export function GuidanceCard({
       </View>
 
       <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
-        {(["left", "right"] as const).map((side) => {
-          const selected = backingSide === side;
-
-          return (
-            <TouchableOpacity
-              key={side}
-              onPress={() => setBackingSide(side)}
-              style={{
-                flex: 1,
-                padding: 12,
-                borderRadius: 12,
-                backgroundColor: selected ? "#0f172a" : "white",
-                borderWidth: 1,
-                borderColor: selected ? "#0f172a" : "#cbd5e1",
-              }}
-            >
-              <Text
-                style={{
-                  textAlign: "center",
-                  fontWeight: "900",
-                  color: selected ? "white" : "#0f172a",
-                  fontSize: 12,
-                }}
-              >
-                {side === "left" ? "Left-side back-in" : "Right-side back-in"}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      <View
-        style={{
-          flexDirection: "row",
-          gap: 10,
-          marginTop: 12,
-        }}
-      >
         <TouchableOpacity
           onPress={goBack}
           disabled={stepIndex === 0}
@@ -239,32 +203,191 @@ export function GuidanceCard({
           }}
         >
           <Text
-            style={{
-              textAlign: "center",
-              fontWeight: "bold",
-              color: "white",
-            }}
+            style={{ textAlign: "center", fontWeight: "bold", color: "white" }}
           >
             {stepIndex === totalSteps - 1 ? "Done" : "Next"}
           </Text>
         </TouchableOpacity>
       </View>
 
-      <SteeringWheel steeringAngle={steeringAngle} label={steeringLabel} />
+      <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
+        {(["left", "right"] as const).map((side) => {
+          const selected = backingSide === side;
 
+          return (
+            <TouchableOpacity
+              key={side}
+              onPress={() => setBackingSide(side)}
+              style={{
+                flex: 1,
+                padding: 12,
+                borderRadius: 12,
+                backgroundColor: selected ? "#0f172a" : "white",
+                borderWidth: 1,
+                borderColor: selected ? "#0f172a" : "#cbd5e1",
+              }}
+            >
+              <Text
+                style={{
+                  textAlign: "center",
+                  fontWeight: "900",
+                  color: selected ? "white" : "#0f172a",
+                  fontSize: 12,
+                }}
+              >
+                {side === "left" ? "Left-side" : "Right-side"}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
+        {(["easy", "normal", "tight"] as const).map((item) => {
+          const selected = scenario === item;
+
+          return (
+            <TouchableOpacity
+              key={item}
+              onPress={() => setScenario(item)}
+              style={{
+                flex: 1,
+                padding: 10,
+                borderRadius: 12,
+                backgroundColor: selected ? "#7c3aed" : "white",
+                borderWidth: 1,
+                borderColor: selected ? "#7c3aed" : "#cbd5e1",
+              }}
+            >
+              <Text
+                style={{
+                  textAlign: "center",
+                  fontWeight: "900",
+                  color: selected ? "white" : "#0f172a",
+                  fontSize: 12,
+                }}
+              >
+                {item === "easy"
+                  ? "Easy"
+                  : item === "normal"
+                    ? "Normal"
+                    : "Tight"}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <Text
+        style={{
+          marginTop: 8,
+          textAlign: "center",
+          color:
+            scenario === "tight"
+              ? "#dc2626"
+              : scenario === "easy"
+                ? "#16a34a"
+                : "#475569",
+          fontWeight: "800",
+          fontSize: 12,
+        }}
+      >
+        {scenario === "easy"
+          ? "Wide practice site — forgiving setup"
+          : scenario === "tight"
+            ? "Tight site — use smaller steering corrections"
+            : "Normal practice site"}
+      </Text>
+
+      <SteeringWheel steeringAngle={steeringAngle} label={steeringLabel} />
       <SteeringAmountIndicator steeringAngle={steeringAngle} />
+
       <HitchAngleIndicator
         truckAngle={truckAngle}
         trailerAngle={trailerAngle}
+        scenario={scenario}
       />
 
-      <TrainingScoreCard
-        stepIndex={stepIndex}
-        totalSteps={totalSteps}
-        steeringAngle={steeringAngle}
-        truckAngle={truckAngle}
-        trailerAngle={trailerAngle}
-      />
+      {stepIndex === totalSteps - 1 ? (
+        <>
+          <TrainingScoreCard
+            stepIndex={stepIndex}
+            totalSteps={totalSteps}
+            steeringAngle={steeringAngle}
+            truckAngle={truckAngle}
+            trailerAngle={trailerAngle}
+            scenario={scenario}
+          />
+
+          <View
+            style={{
+              marginTop: 12,
+              padding: 12,
+              borderRadius: 12,
+              backgroundColor: "#f8fafc",
+              borderWidth: 1,
+              borderColor: "#cbd5e1",
+            }}
+          >
+            <Text
+              style={{
+                textAlign: "center",
+                fontSize: 12,
+                fontWeight: "900",
+                color: "#334155",
+              }}
+            >
+              SESSION SUMMARY
+            </Text>
+
+            <Text style={{ marginTop: 8, fontWeight: "700", color: "#0f172a" }}>
+              Scenario:{" "}
+              {scenario === "easy"
+                ? "Easy site"
+                : scenario === "normal"
+                  ? "Normal site"
+                  : "Tight site"}
+            </Text>
+
+            <Text style={{ marginTop: 4, fontWeight: "700", color: "#0f172a" }}>
+              Backing side:{" "}
+              {backingSide === "left"
+                ? "Left-side back-in"
+                : "Right-side back-in"}
+            </Text>
+
+            <Text style={{ marginTop: 4, fontWeight: "700", color: "#0f172a" }}>
+              Main coaching note:{" "}
+              {scenario === "tight"
+                ? "Use smaller steering corrections and stop more often."
+                : scenario === "easy"
+                  ? "Good practice setup. Focus on smooth steering."
+                  : "Keep watching the trailer angle and straighten early."}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            onPress={restartPractice}
+            style={{
+              marginTop: 12,
+              padding: 14,
+              borderRadius: 12,
+              backgroundColor: "#16a34a",
+            }}
+          >
+            <Text
+              style={{
+                color: "white",
+                textAlign: "center",
+                fontWeight: "900",
+                fontSize: 16,
+              }}
+            >
+              🔄 Restart Practice
+            </Text>
+          </TouchableOpacity>
+        </>
+      ) : null}
 
       <View
         style={{
@@ -286,13 +409,7 @@ export function GuidanceCard({
         </Text>
       </View>
 
-      <View
-        style={{
-          flexDirection: "row",
-          gap: 10,
-          marginTop: 12,
-        }}
-      >
+      <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
         <TouchableOpacity
           onPress={() => {
             Speech.stop();
@@ -357,13 +474,7 @@ export function GuidanceCard({
         {currentStep.title}
       </Text>
 
-      <Text
-        style={{
-          marginTop: 10,
-          fontSize: 16,
-          lineHeight: 23,
-        }}
-      >
+      <Text style={{ marginTop: 10, fontSize: 16, lineHeight: 23 }}>
         {currentStep.instruction}
       </Text>
 
@@ -378,70 +489,18 @@ export function GuidanceCard({
             borderColor: "#fed7aa",
           }}
         >
-          <Text
-            style={{
-              color: "#9a3412",
-              fontWeight: "bold",
-            }}
-          >
+          <Text style={{ color: "#9a3412", fontWeight: "bold" }}>
             ⚠️ {currentStep.warning}
           </Text>
         </View>
       ) : null}
 
-      <View
-        style={{
-          flexDirection: "row",
-          gap: 10,
-          marginTop: 18,
-        }}
-      >
-        {/* <TouchableOpacity
-          onPress={goBack}
-          disabled={stepIndex === 0}
-          style={{
-            flex: 1,
-            padding: 14,
-            borderRadius: 10,
-            borderWidth: 1,
-            borderColor: "#ccc",
-            backgroundColor: stepIndex === 0 ? "#f1f5f9" : "white",
-            opacity: stepIndex === 0 ? 0.5 : 1,
-          }}
-        >
-          <Text
-            style={{
-              textAlign: "center",
-              fontWeight: "bold",
-            }}
-          >
-            Back
-          </Text>
-        </TouchableOpacity> */}
-
-        {/* <TouchableOpacity
-          onPress={goNext}
-          disabled={stepIndex === totalSteps - 1}
-          style={{
-            flex: 1,
-            padding: 14,
-            borderRadius: 10,
-            backgroundColor:
-              stepIndex === totalSteps - 1 ? "#94a3b8" : "#0891b2",
-          }}
-        >
-          <Text
-            style={{
-              textAlign: "center",
-              fontWeight: "bold",
-              color: "white",
-            }}
-          >
-            {stepIndex === totalSteps - 1 ? "Done" : "Next"}
-          </Text>
-        </TouchableOpacity> */}
-      </View>
-      <ParkingDiagram stepIndex={stepIndex} backingSide={backingSide} />
+      {/* Keep diagram hidden for now until layout/scrolling is fixed */}
+      <ParkingDiagram
+        stepIndex={stepIndex}
+        backingSide={backingSide}
+        obstacles={obstacles}
+      />
     </View>
   );
 }

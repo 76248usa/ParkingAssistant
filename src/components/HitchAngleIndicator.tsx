@@ -1,15 +1,31 @@
 import { Text, View } from "react-native";
 
+type Scenario = "easy" | "normal" | "tight";
+
 type Props = {
   truckAngle: number;
   trailerAngle: number;
+  scenario: Scenario;
 };
 
-export function HitchAngleIndicator({ truckAngle, trailerAngle }: Props) {
+export function HitchAngleIndicator({
+  truckAngle,
+  trailerAngle,
+  scenario,
+}: Props) {
   const hitchAngle = Math.abs(trailerAngle - truckAngle);
 
+  const safeLimit = scenario === "easy" ? 25 : scenario === "normal" ? 20 : 15;
+
+  const cautionLimit =
+    scenario === "easy" ? 40 : scenario === "normal" ? 35 : 28;
+
   const status =
-    hitchAngle >= 36 ? "JACKKNIFE RISK" : hitchAngle >= 21 ? "CAUTION" : "SAFE";
+    hitchAngle >= cautionLimit
+      ? "JACKKNIFE RISK"
+      : hitchAngle >= safeLimit
+        ? "CAUTION"
+        : "SAFE";
 
   const color =
     status === "JACKKNIFE RISK"
@@ -18,7 +34,7 @@ export function HitchAngleIndicator({ truckAngle, trailerAngle }: Props) {
         ? "#f97316"
         : "#16a34a";
 
-  const percent = Math.min((hitchAngle / 45) * 100, 100);
+  const percent = Math.min((hitchAngle / cautionLimit) * 100, 100);
 
   return (
     <View
@@ -64,6 +80,22 @@ export function HitchAngleIndicator({ truckAngle, trailerAngle }: Props) {
         }}
       >
         {Math.round(hitchAngle)}°
+      </Text>
+
+      <Text
+        style={{
+          marginTop: 4,
+          textAlign: "center",
+          fontSize: 12,
+          fontWeight: "700",
+          color: "#64748b",
+        }}
+      >
+        {scenario === "easy"
+          ? "Easy mode: more forgiving"
+          : scenario === "normal"
+            ? "Normal mode: standard limits"
+            : "Tight mode: stricter limits"}
       </Text>
 
       <View

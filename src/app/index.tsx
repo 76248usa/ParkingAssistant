@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { CollisionRiskCard } from "../components/CollisionRiskCard";
 import { GuidanceCard } from "../components/GuidanceCard";
 import { ParkingTypeSelector } from "../components/ParkingTypeSelector";
 import { RigSetupCard } from "../components/RigSetupCard";
@@ -11,6 +10,7 @@ import {
   SiteObstacleSelector,
 } from "../components/SiteObstacleSelector";
 import { ParkingType, guidanceByType } from "../constants/parkingGuidance";
+
 function getObstacleWarning(obstacles: SiteObstacle[], stepIndex: number) {
   const warnings: string[] = [];
 
@@ -61,21 +61,7 @@ export default function Index() {
   const totalLength = (Number(truckLength) || 0) + (Number(trailerLength) || 0);
   const steps = guidanceByType[parkingType];
   const currentStep = steps[stepIndex];
-
   const obstacleWarnings = getObstacleWarning(obstacles, stepIndex);
-
-  const steeringGuidance =
-    stepIndex === 0
-      ? "↑ KEEP STRAIGHT"
-      : stepIndex === 1
-        ? "↶ TURN LEFT"
-        : stepIndex === 2
-          ? "↷ TURN RIGHT"
-          : stepIndex === 3
-            ? "↑ STRAIGHTEN WHEEL"
-            : "🛑 STOP";
-
-  const bannerColor = steeringGuidance === "🛑 STOP" ? "#dc2626" : "#0891b2";
 
   function selectParkingType(type: ParkingType) {
     setParkingType(type);
@@ -108,6 +94,7 @@ export default function Index() {
       <Text style={{ fontSize: 28, fontWeight: "bold" }}>
         RV Parking Assistant
       </Text>
+
       <GuidanceCard
         currentStep={currentStep}
         stepIndex={stepIndex}
@@ -121,32 +108,7 @@ export default function Index() {
         setScenario={setScenario}
         obstacles={obstacles}
       />
-      <View
-        style={{
-          marginTop: 14,
-          backgroundColor: bannerColor,
-          borderRadius: 16,
-          paddingVertical: 16,
-          paddingHorizontal: 12,
-        }}
-      >
-        <Text
-          style={{
-            color: "white",
-            textAlign: "center",
-            fontSize: 26,
-            fontWeight: "900",
-          }}
-        >
-          {steeringGuidance}
-        </Text>
-      </View>
-      <CollisionRiskCard
-        stepIndex={stepIndex}
-        backingSide={backingSide}
-        scenario={scenario}
-        obstacles={obstacles}
-      />
+
       <RigSetupCard
         truckLength={truckLength}
         trailerLength={trailerLength}
@@ -154,12 +116,15 @@ export default function Index() {
         setTruckLength={setTruckLength}
         setTrailerLength={setTrailerLength}
       />
+
       <ParkingTypeSelector
         parkingType={parkingType}
         selectParkingType={selectParkingType}
       />
+
       <SiteObstacleSelector obstacles={obstacles} setObstacles={setObstacles} />
-      {obstacleWarnings.length > 0 && (
+
+      {obstacleWarnings.length > 0 ? (
         <View
           style={{
             backgroundColor: "#fff3cd",
@@ -180,7 +145,7 @@ export default function Index() {
             </Text>
           ))}
         </View>
-      )}{" "}
+      ) : null}
     </ScrollView>
   );
 }

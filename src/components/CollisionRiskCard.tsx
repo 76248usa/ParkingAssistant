@@ -1,83 +1,48 @@
 import { Text, View } from "react-native";
+import {
+  BackingSide,
+  getObstacleDistances,
+  getOverallRiskLevel,
+  Scenario,
+} from "../utils/obstacleDistance";
 import { SiteObstacle } from "./SiteObstacleSelector";
 
 type Props = {
   stepIndex: number;
-  backingSide: "left" | "right";
-  scenario: "easy" | "normal" | "tight";
+  backingSide: BackingSide;
+  scenario: Scenario;
   obstacles: SiteObstacle[];
+  trailerAngle: number;
 };
 
-function getRiskLevel(
-  stepIndex: number,
-  scenario: "easy" | "normal" | "tight",
-  obstacles: SiteObstacle[],
-) {
-  let risk = 0;
-
-  risk += stepIndex;
-
-  if (scenario === "normal") risk += 1;
-  if (scenario === "tight") risk += 2;
-
-  risk += obstacles.length;
-
-  if (risk >= 6) return "high";
-  if (risk >= 3) return "medium";
-  return "low";
+function getRiskTitle(riskLevel: "low" | "medium" | "high") {
+  if (riskLevel === "high") return "High Collision Risk";
+  if (riskLevel === "medium") return "Moderate Collision Risk";
+  return "Low Collision Risk";
 }
 
-function getRiskMessages({
-  stepIndex,
-  backingSide,
-  scenario,
-  obstacles,
-}: Props) {
-  const messages: string[] = [];
-
-  if (obstacles.includes("poleRight")) {
-    messages.push(
-      "🚧 Pole collision risk: watch passenger-side trailer swing.",
-    );
+function getRiskColors(riskLevel: "low" | "medium" | "high") {
+  if (riskLevel === "high") {
+    return {
+      backgroundColor: "#fee2e2",
+      borderColor: "#ef4444",
+      textColor: "#7f1d1d",
+    };
   }
 
-  if (obstacles.includes("treeLeft")) {
-    messages.push(
-      "🌳 Tree clearance risk: keep the trailer from drifting left.",
-    );
+  if (riskLevel === "medium") {
+    return {
+      backgroundColor: "#fff7ed",
+      borderColor: "#fb923c",
+      textColor: "#7c2d12",
+    };
   }
 
-  if (obstacles.includes("lowBranch")) {
-    messages.push(
-      "🌿 Roof clearance warning: check overhead space before backing deeper.",
-    );
-  }
-
-  if (obstacles.includes("tightHookupSide")) {
-    messages.push("⚡ Utility-side clearance: leave room for hookups.");
-  }
-
-  if (scenario === "tight" && stepIndex >= 2) {
-    messages.push(
-      "⚠️ Tight site: correct early and avoid sharp steering changes.",
-    );
-  }
-
-  if (stepIndex >= 3) {
-    messages.push("⚠️ Jackknife risk increases here. Straighten slowly.");
-  }
-
-  if (backingSide === "right" && obstacles.includes("poleRight")) {
-    messages.push(
-      "🚧 Extra caution: right-side backing with a right-side pole is harder to see.",
-    );
-  }
-
-  if (messages.length === 0) {
-    messages.push("✅ Clear: no major collision risks detected.");
-  }
-
-  return messages;
+  return {
+    backgroundColor: "#dcfce7",
+    borderColor: "#22c55e",
+    textColor: "#14532d",
+  };
 }
 
 export function CollisionRiskCard({
@@ -85,42 +50,31 @@ export function CollisionRiskCard({
   backingSide,
   scenario,
   obstacles,
+  trailerAngle,
 }: Props) {
-  const riskLevel = getRiskLevel(stepIndex, scenario, obstacles);
-
-  const messages = getRiskMessages({
+  const distances = getObstacleDistances({
     stepIndex,
     backingSide,
     scenario,
     obstacles,
+    trailerAngle,
   });
 
-  const backgroundColor =
-    riskLevel === "high"
-      ? "#fee2e2"
-      : riskLevel === "medium"
-        ? "#fff7ed"
-        : "#dcfce7";
+  const riskLevel = getOverallRiskLevel(
+    distances,
+    trailerAngle,
+    scenario,
+    stepIndex,
+  );
+  const colors = getRiskColors(riskLevel);
 
-  const borderColor =
-    riskLevel === "high"
-      ? "#ef4444"
-      : riskLevel === "medium"
-        ? "#fb923c"
-        : "#22c55e";
-
-  const title =
-    riskLevel === "high"
-      ? "High Collision Risk"
-      : riskLevel === "medium"
-        ? "Moderate Collision Risk"
-        : "Low Collision Risk";
+  const hasObstacles = distances.length > 0;
 
   return (
     <View
       style={{
-        backgroundColor,
-        borderColor,
+        backgroundColor: colors.backgroundColor,
+        borderColor: colors.borderColor,
         borderWidth: 1,
         borderRadius: 14,
         padding: 12,
@@ -130,24 +84,88 @@ export function CollisionRiskCard({
       <Text
         style={{
           fontSize: 16,
-          fontWeight: "800",
+          fontWeight: "900",
+          color: colors.textColor,
           marginBottom: 6,
         }}
       >
-        {title}
+        {getRiskTitle(riskLevel)}
       </Text>
 
-      {messages.map((message) => (
+      {!hasObstacles ? (
         <Text
-          key={message}
           style={{
             fontSize: 14,
-            marginBottom: 4,
+            color: colors.textColor,
+            fontWeight: "700",
           }}
         >
-          {message}
+          ✅ Clear: no major collision risks detected.
         </Text>
-      ))}
+      ) : (
+        distances.map((item) => {
+          const message =
+            item.riskLevel === "high"
+              ? `${item.emoji} ${item.label}: ${item.distance} ft clearance — STOP and correct before backing farther.`
+              : item.riskLevel === "medium"
+                ? `${item.emoji} ${item.label}: ${item.distance} ft clearance — continue slowly and correct early.`
+                : `${item.emoji} ${item.label}: ${item.distance} ft clearance — looks acceptable.`;
+
+          return (
+            <Text
+              key={item.id}
+              style={{
+                fontSize: 14,
+                color: colors.textColor,
+                fontWeight: "700",
+                marginBottom: 4,
+              }}
+            >
+              {message}
+            </Text>
+          );
+        })
+      )}
+
+      {scenario === "tight" && stepIndex >= 2 ? (
+        <Text
+          style={{
+            marginTop: 6,
+            fontSize: 13,
+            color: colors.textColor,
+            fontWeight: "800",
+          }}
+        >
+          ⚠️ Tight site: use smaller steering corrections and stop more often.
+        </Text>
+      ) : null}
+
+      {stepIndex >= 3 ? (
+        <Text
+          style={{
+            marginTop: 4,
+            fontSize: 13,
+            color: colors.textColor,
+            fontWeight: "800",
+          }}
+        >
+          ⚠️ Jackknife risk increases here. Straighten slowly.
+        </Text>
+      ) : null}
+
+      {backingSide === "right" && obstacles.includes("poleRight") ? (
+        <Text
+          style={{
+            marginTop: 4,
+            fontSize: 13,
+            color: colors.textColor,
+            fontWeight: "800",
+          }}
+        >
+          🚧 Extra caution: right-side backing with a right-side pole is harder
+          to see.
+        </Text>
+      ) : null}
     </View>
   );
 }

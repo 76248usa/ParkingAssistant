@@ -4,8 +4,12 @@ import * as Speech from "expo-speech";
 import { useEffect, useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { GuidanceStep } from "../constants/parkingGuidance";
+import { AutoCoachingBanner } from "./AutoCoachingBanner";
+import { CollisionRiskCard } from "./CollisionRiskCard";
 import { HitchAngleIndicator } from "./HitchAngleIndicator";
+import { ObstacleDistanceCard } from "./ObstacleDistanceCard";
 import { ParkingDiagram } from "./ParkingDiagram";
+import { PracticeAction, PracticeModeControls } from "./PracticeModeControls";
 import { SiteObstacle } from "./SiteObstacleSelector";
 import { SteeringAmountIndicator } from "./SteeringAmountIndicator";
 import { SteeringWheel } from "./SteeringWheel";
@@ -41,6 +45,11 @@ export function GuidanceCard({
   obstacles,
 }: Props) {
   const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [practiceAction, setPracticeAction] = useState<PracticeAction>("idle");
+  const [simulatedSteeringAngle, setSimulatedSteeringAngle] = useState(0);
+  const [simulatedTruckAngle, setSimulatedTruckAngle] = useState(0);
+  const [simulatedTrailerAngle, setSimulatedTrailerAngle] = useState(0);
+
   const sideMultiplier = backingSide === "left" ? 1 : -1;
 
   const steeringGuidance =
@@ -82,6 +91,13 @@ export function GuidanceCard({
         : stepIndex === 3
           ? 4 * sideMultiplier
           : 0;
+
+  useEffect(() => {
+    setSimulatedSteeringAngle(steeringAngle);
+    setSimulatedTruckAngle(truckAngle);
+    setSimulatedTrailerAngle(trailerAngle);
+    setPracticeAction("idle");
+  }, [stepIndex, backingSide, steeringAngle, truckAngle, trailerAngle]);
 
   const steeringLabel =
     stepIndex === 1
@@ -138,6 +154,55 @@ export function GuidanceCard({
     };
   }, [voicePrompt, voiceEnabled]);
 
+  function clamp(value: number, min: number, max: number) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function moveTowardZero(value: number, amount: number) {
+    if (value > 0) return Math.max(0, value - amount);
+    if (value < 0) return Math.min(0, value + amount);
+    return 0;
+  }
+
+  function handlePracticeAction(action: PracticeAction) {
+    setPracticeAction(action);
+
+    if (action === "steerLeft") {
+      setSimulatedSteeringAngle((current) => clamp(current - 8, -45, 45));
+      setSimulatedTruckAngle((current) => clamp(current - 4, -25, 25));
+      setSimulatedTrailerAngle((current) => clamp(current + 3, -45, 45));
+      return;
+    }
+
+    if (action === "steerRight") {
+      setSimulatedSteeringAngle((current) => clamp(current + 8, -45, 45));
+      setSimulatedTruckAngle((current) => clamp(current + 4, -25, 25));
+      setSimulatedTrailerAngle((current) => clamp(current - 3, -45, 45));
+      return;
+    }
+
+    if (action === "backing") {
+      setSimulatedTrailerAngle((current) => {
+        if (simulatedTruckAngle < -3) return clamp(current + 4, -45, 45);
+        if (simulatedTruckAngle > 3) return clamp(current - 4, -45, 45);
+        return clamp(current + current * 0.08, -45, 45);
+      });
+
+      return;
+    }
+
+    if (action === "forward") {
+      setSimulatedSteeringAngle((current) => moveTowardZero(current, 10));
+      setSimulatedTruckAngle((current) => moveTowardZero(current, 6));
+      setSimulatedTrailerAngle((current) => moveTowardZero(current, 8));
+      return;
+    }
+
+    if (action === "stop") {
+      return;
+    }
+  }
+
   return (
     <View
       style={{
@@ -152,7 +217,6 @@ export function GuidanceCard({
       <Text style={{ fontSize: 12, fontWeight: "bold", color: "#0e7490" }}>
         STEP {stepIndex + 1} OF {totalSteps}
       </Text>
-
       <View
         style={{
           marginTop: 12,
@@ -173,7 +237,6 @@ export function GuidanceCard({
           {steeringGuidance}
         </Text>
       </View>
-
       <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
         <TouchableOpacity
           onPress={goBack}
@@ -209,7 +272,6 @@ export function GuidanceCard({
           </Text>
         </TouchableOpacity>
       </View>
-
       <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
         {(["left", "right"] as const).map((side) => {
           const selected = backingSide === side;
@@ -241,7 +303,6 @@ export function GuidanceCard({
           );
         })}
       </View>
-
       <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
         {(["easy", "normal", "tight"] as const).map((item) => {
           const selected = scenario === item;
@@ -277,7 +338,6 @@ export function GuidanceCard({
           );
         })}
       </View>
-
       <Text
         style={{
           marginTop: 8,
@@ -298,27 +358,26 @@ export function GuidanceCard({
             ? "Tight site — use smaller steering corrections"
             : "Normal practice site"}
       </Text>
-
-      <SteeringWheel steeringAngle={steeringAngle} label={steeringLabel} />
-      <SteeringAmountIndicator steeringAngle={steeringAngle} />
-
+      <SteeringWheel
+        steeringAngle={simulatedSteeringAngle}
+        label={steeringLabel}
+      />
+      <SteeringAmountIndicator steeringAngle={simulatedSteeringAngle} />
       <HitchAngleIndicator
-        truckAngle={truckAngle}
-        trailerAngle={trailerAngle}
+        truckAngle={simulatedTruckAngle}
+        trailerAngle={simulatedTrailerAngle}
         scenario={scenario}
       />
-
       {stepIndex === totalSteps - 1 ? (
         <>
           <TrainingScoreCard
             stepIndex={stepIndex}
             totalSteps={totalSteps}
-            steeringAngle={steeringAngle}
-            truckAngle={truckAngle}
-            trailerAngle={trailerAngle}
+            steeringAngle={simulatedSteeringAngle}
+            truckAngle={simulatedTruckAngle}
+            trailerAngle={simulatedTrailerAngle}
             scenario={scenario}
           />
-
           <View
             style={{
               marginTop: 12,
@@ -388,7 +447,6 @@ export function GuidanceCard({
           </TouchableOpacity>
         </>
       ) : null}
-
       <View
         style={{
           marginTop: 12,
@@ -408,7 +466,6 @@ export function GuidanceCard({
           {trainingFeedback}
         </Text>
       </View>
-
       <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
         <TouchableOpacity
           onPress={() => {
@@ -462,7 +519,6 @@ export function GuidanceCard({
           </Text>
         </TouchableOpacity>
       </View>
-
       <Text
         style={{
           marginTop: 12,
@@ -473,11 +529,9 @@ export function GuidanceCard({
       >
         {currentStep.title}
       </Text>
-
       <Text style={{ marginTop: 10, fontSize: 16, lineHeight: 23 }}>
         {currentStep.instruction}
       </Text>
-
       {currentStep.warning ? (
         <View
           style={{
@@ -494,12 +548,38 @@ export function GuidanceCard({
           </Text>
         </View>
       ) : null}
-
-      {/* Keep diagram hidden for now until layout/scrolling is fixed */}
       <ParkingDiagram
         stepIndex={stepIndex}
         backingSide={backingSide}
         obstacles={obstacles}
+        simulatedTruckAngle={simulatedTruckAngle}
+        simulatedTrailerAngle={simulatedTrailerAngle}
+      />
+      <PracticeModeControls
+        practiceAction={practiceAction}
+        onPracticeAction={handlePracticeAction}
+        backingSide={backingSide}
+      />
+      <ObstacleDistanceCard
+        stepIndex={stepIndex}
+        backingSide={backingSide}
+        scenario={scenario}
+        obstacles={obstacles}
+        trailerAngle={simulatedTrailerAngle}
+      />
+      <AutoCoachingBanner
+        stepIndex={stepIndex}
+        backingSide={backingSide}
+        scenario={scenario}
+        obstacles={obstacles}
+        trailerAngle={simulatedTrailerAngle}
+      />
+      <CollisionRiskCard
+        stepIndex={stepIndex}
+        backingSide={backingSide}
+        scenario={scenario}
+        obstacles={obstacles}
+        trailerAngle={simulatedTrailerAngle}
       />
     </View>
   );

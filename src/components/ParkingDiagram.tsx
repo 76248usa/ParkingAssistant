@@ -6,9 +6,17 @@ type Props = {
   stepIndex: number;
   backingSide: "left" | "right";
   obstacles: SiteObstacle[];
+  simulatedTruckAngle?: number;
+  simulatedTrailerAngle?: number;
 };
 
-export function ParkingDiagram({ stepIndex, backingSide, obstacles }: Props) {
+export function ParkingDiagram({
+  stepIndex,
+  backingSide,
+  obstacles,
+  simulatedTruckAngle,
+  simulatedTrailerAngle,
+}: Props) {
   const sideMultiplier = backingSide === "left" ? 1 : -1;
 
   const baseTrailerAngle =
@@ -16,10 +24,9 @@ export function ParkingDiagram({ stepIndex, backingSide, obstacles }: Props) {
 
   const baseTruckAngle =
     stepIndex === 1 ? -10 : stepIndex === 2 ? 12 : stepIndex === 3 ? 4 : 0;
-
-  const trailerAngle = baseTrailerAngle * sideMultiplier;
-  const truckAngle = baseTruckAngle * sideMultiplier;
-
+  const trailerAngle =
+    simulatedTrailerAngle ?? baseTrailerAngle * sideMultiplier;
+  const truckAngle = simulatedTruckAngle ?? baseTruckAngle * sideMultiplier;
   const animatedTrailerAngle = useRef(new Animated.Value(trailerAngle)).current;
   const animatedTruckAngle = useRef(new Animated.Value(truckAngle)).current;
 

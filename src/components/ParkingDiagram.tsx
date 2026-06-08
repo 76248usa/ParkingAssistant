@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, Text, View } from "react-native";
+import { PracticeAction } from "./PracticeModeControls";
 import { SiteObstacle } from "./SiteObstacleSelector";
 
 type Props = {
@@ -8,6 +9,9 @@ type Props = {
   obstacles: SiteObstacle[];
   simulatedTruckAngle?: number;
   simulatedTrailerAngle?: number;
+  simulatedSteeringAngle?: number;
+  practiceAction?: PracticeAction;
+  movementTrail?: { x: number; y: number; angle: number }[];
 };
 
 export function ParkingDiagram({
@@ -16,6 +20,9 @@ export function ParkingDiagram({
   obstacles,
   simulatedTruckAngle,
   simulatedTrailerAngle,
+  simulatedSteeringAngle = 0,
+  practiceAction = "idle",
+  movementTrail = [],
 }: Props) {
   const sideMultiplier = backingSide === "left" ? 1 : -1;
 
@@ -24,9 +31,11 @@ export function ParkingDiagram({
 
   const baseTruckAngle =
     stepIndex === 1 ? -10 : stepIndex === 2 ? 12 : stepIndex === 3 ? 4 : 0;
+
   const trailerAngle =
     simulatedTrailerAngle ?? baseTrailerAngle * sideMultiplier;
   const truckAngle = simulatedTruckAngle ?? baseTruckAngle * sideMultiplier;
+
   const animatedTrailerAngle = useRef(new Animated.Value(trailerAngle)).current;
   const animatedTruckAngle = useRef(new Animated.Value(truckAngle)).current;
 
@@ -56,6 +65,36 @@ export function ParkingDiagram({
     inputRange: [-25, 25],
     outputRange: ["-25deg", "25deg"],
   });
+
+  const steeringPreviewLabel =
+    practiceAction === "steerLeft"
+      ? "↶ Steering Left"
+      : practiceAction === "steerRight"
+        ? "↷ Steering Right"
+        : simulatedSteeringAngle < -5
+          ? "↶ Steering Left"
+          : simulatedSteeringAngle > 5
+            ? "↷ Steering Right"
+            : practiceAction === "backing"
+              ? "⬇️ Backing"
+              : practiceAction === "forward"
+                ? "⬆️ Pulling Forward"
+                : practiceAction === "stop"
+                  ? "🛑 Stopped"
+                  : "↑ Steering Straight";
+
+  const steeringPreviewColor =
+    practiceAction === "steerLeft" || simulatedSteeringAngle < -5
+      ? "#2563eb"
+      : practiceAction === "steerRight" || simulatedSteeringAngle > 5
+        ? "#7c3aed"
+        : practiceAction === "stop"
+          ? "#dc2626"
+          : practiceAction === "backing"
+            ? "#f97316"
+            : practiceAction === "forward"
+              ? "#0891b2"
+              : "#16a34a";
 
   return (
     <View
@@ -141,6 +180,22 @@ export function ParkingDiagram({
           ⚡
         </Text>
       )}
+
+      {movementTrail.map((point, index) => (
+        <View
+          key={index}
+          style={{
+            position: "absolute",
+            left: point.x,
+            top: point.y,
+            width: 10,
+            height: 10,
+            borderRadius: 4,
+            backgroundColor: "#f97316",
+            opacity: 0.25 + index * 0.08,
+          }}
+        />
+      ))}
 
       {/* Predicted trailer path */}
       <View
@@ -268,6 +323,19 @@ export function ParkingDiagram({
       <Text
         style={{
           position: "absolute",
+          top: 28,
+          left: 12,
+          color: steeringPreviewColor,
+          fontSize: 12,
+          fontWeight: "900",
+        }}
+      >
+        {steeringPreviewLabel}
+      </Text>
+
+      <Text
+        style={{
+          position: "absolute",
           bottom: 24,
           left: 12,
           color: "#f97316",
@@ -288,7 +356,7 @@ export function ParkingDiagram({
           fontWeight: "600",
         }}
       >
-        Truck: {truckAngle}° | Trailer: {trailerAngle}°
+        Truck: {Math.round(truckAngle)}° | Trailer: {Math.round(trailerAngle)}°
       </Text>
     </View>
   );

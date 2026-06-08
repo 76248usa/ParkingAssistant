@@ -5,11 +5,13 @@ import { useEffect, useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { GuidanceStep } from "../constants/parkingGuidance";
 import { AutoCoachingBanner } from "./AutoCoachingBanner";
+import { AutoStepSuggestionCard } from "./AutoStepSuggestionCard";
 import { CollisionRiskCard } from "./CollisionRiskCard";
 import { HitchAngleIndicator } from "./HitchAngleIndicator";
 import { ObstacleDistanceCard } from "./ObstacleDistanceCard";
 import { ParkingDiagram } from "./ParkingDiagram";
 import { PracticeAction, PracticeModeControls } from "./PracticeModeControls";
+import { SimulatorStatusCard } from "./SimulatorStatusCard";
 import { SiteObstacle } from "./SiteObstacleSelector";
 import { SteeringAmountIndicator } from "./SteeringAmountIndicator";
 import { SteeringWheel } from "./SteeringWheel";
@@ -49,7 +51,9 @@ export function GuidanceCard({
   const [simulatedSteeringAngle, setSimulatedSteeringAngle] = useState(0);
   const [simulatedTruckAngle, setSimulatedTruckAngle] = useState(0);
   const [simulatedTrailerAngle, setSimulatedTrailerAngle] = useState(0);
-
+  const [movementTrail, setMovementTrail] = useState<
+    { x: number; y: number; angle: number }[]
+  >([]);
   const sideMultiplier = backingSide === "left" ? 1 : -1;
 
   const steeringGuidance =
@@ -164,37 +168,108 @@ export function GuidanceCard({
     return 0;
   }
 
+  function getScenarioPhysicsMultiplier() {
+    if (scenario === "easy") return 0.75;
+    if (scenario === "tight") return 1.25;
+    return 1;
+  }
+
+  function getJackknifeLimit() {
+    if (scenario === "easy") return 42;
+    if (scenario === "tight") return 32;
+    return 36;
+  }
+
+  function calculateTrailerChangeWhileBacking({
+    steeringAngle,
+    trailerAngle,
+  }: {
+    steeringAngle: number;
+    trailerAngle: number;
+  }) {
+    const physicsMultiplier = getScenarioPhysicsMultiplier();
+
+    const steeringInfluence = steeringAngle * -0.12;
+    const trailerMomentum = trailerAngle * 0.06;
+
+    return (steeringInfluence + trailerMomentum) * physicsMultiplier;
+  }
+
+  function calculateTruckChangeFromSteering(steeringAngle: number) {
+    return steeringAngle * 0.08;
+  }
+  function resetSimulation() {
+    setSimulatedSteeringAngle(steeringAngle);
+    setSimulatedTruckAngle(truckAngle);
+    setSimulatedTrailerAngle(trailerAngle);
+    setPracticeAction("idle");
+    setMovementTrail([]);
+  }
+
   function handlePracticeAction(action: PracticeAction) {
     setPracticeAction(action);
 
+    const jackknifeLimit = getJackknifeLimit();
+
     if (action === "steerLeft") {
-      setSimulatedSteeringAngle((current) => clamp(current - 8, -45, 45));
-      setSimulatedTruckAngle((current) => clamp(current - 4, -25, 25));
-      setSimulatedTrailerAngle((current) => clamp(current + 3, -45, 45));
+      setSimulatedSteeringAngle((current) => clamp(current - 10, -45, 45));
+
+      // Add a small visual truck preview so the diagram reacts immediately
+      setSimulatedTruckAngle((current) => clamp(current - 3, -25, 25));
+
       return;
     }
 
     if (action === "steerRight") {
-      setSimulatedSteeringAngle((current) => clamp(current + 8, -45, 45));
-      setSimulatedTruckAngle((current) => clamp(current + 4, -25, 25));
-      setSimulatedTrailerAngle((current) => clamp(current - 3, -45, 45));
+      setSimulatedSteeringAngle((current) => clamp(current + 10, -45, 45));
+
+      // Add a small visual truck preview so the diagram reacts immediately
+      setSimulatedTruckAngle((current) => clamp(current + 3, -25, 25));
+
       return;
     }
 
     if (action === "backing") {
-      setSimulatedTrailerAngle((current) => {
-        if (simulatedTruckAngle < -3) return clamp(current + 4, -45, 45);
-        if (simulatedTruckAngle > 3) return clamp(current - 4, -45, 45);
-        return clamp(current + current * 0.08, -45, 45);
+      setSimulatedTruckAngle((currentTruckAngle) => {
+        const steeringEffect = simulatedSteeringAngle * 0.08;
+        const nextTruckAngle =
+          moveTowardZero(currentTruckAngle, 1.5) + steeringEffect;
+
+        return clamp(nextTruckAngle, -25, 25);
+      });
+
+      setSimulatedTrailerAngle((currentTrailerAngle) => {
+        const trailerChange = calculateTrailerChangeWhileBacking({
+          steeringAngle: simulatedSteeringAngle,
+          trailerAngle: currentTrailerAngle,
+        });
+
+        return clamp(
+          currentTrailerAngle + trailerChange,
+          -jackknifeLimit,
+          jackknifeLimit,
+        );
+      });
+
+      setMovementTrail((current) => {
+        const nextIndex = current.length;
+
+        return [
+          ...current.slice(-10),
+          {
+            x: 70 + nextIndex * 12,
+            y: 160 - Math.min(Math.abs(simulatedTrailerAngle), 35),
+            angle: simulatedTrailerAngle,
+          },
+        ];
       });
 
       return;
     }
-
     if (action === "forward") {
       setSimulatedSteeringAngle((current) => moveTowardZero(current, 10));
-      setSimulatedTruckAngle((current) => moveTowardZero(current, 6));
-      setSimulatedTrailerAngle((current) => moveTowardZero(current, 8));
+      setSimulatedTruckAngle((current) => moveTowardZero(current, 8));
+      setSimulatedTrailerAngle((current) => moveTowardZero(current, 10));
       return;
     }
 
@@ -554,12 +629,35 @@ export function GuidanceCard({
         obstacles={obstacles}
         simulatedTruckAngle={simulatedTruckAngle}
         simulatedTrailerAngle={simulatedTrailerAngle}
+        simulatedSteeringAngle={simulatedSteeringAngle}
+        practiceAction={practiceAction}
+        movementTrail={movementTrail}
       />
       <PracticeModeControls
         practiceAction={practiceAction}
         onPracticeAction={handlePracticeAction}
+        onResetSimulation={resetSimulation}
         backingSide={backingSide}
       />
+
+      <SimulatorStatusCard
+        practiceAction={practiceAction}
+        simulatedSteeringAngle={simulatedSteeringAngle}
+        simulatedTruckAngle={simulatedTruckAngle}
+        simulatedTrailerAngle={simulatedTrailerAngle}
+        scenario={scenario}
+      />
+
+      <AutoStepSuggestionCard
+        practiceAction={practiceAction}
+        simulatedSteeringAngle={simulatedSteeringAngle}
+        simulatedTruckAngle={simulatedTruckAngle}
+        simulatedTrailerAngle={simulatedTrailerAngle}
+        scenario={scenario}
+        stepIndex={stepIndex}
+        backingSide={backingSide}
+      />
+
       <ObstacleDistanceCard
         stepIndex={stepIndex}
         backingSide={backingSide}
@@ -567,12 +665,15 @@ export function GuidanceCard({
         obstacles={obstacles}
         trailerAngle={simulatedTrailerAngle}
       />
+
       <AutoCoachingBanner
         stepIndex={stepIndex}
         backingSide={backingSide}
         scenario={scenario}
         obstacles={obstacles}
         trailerAngle={simulatedTrailerAngle}
+        steeringAngle={simulatedSteeringAngle}
+        practiceAction={practiceAction}
       />
       <CollisionRiskCard
         stepIndex={stepIndex}

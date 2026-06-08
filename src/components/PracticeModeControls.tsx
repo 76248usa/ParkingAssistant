@@ -11,6 +11,7 @@ export type PracticeAction =
 type Props = {
   practiceAction: PracticeAction;
   onPracticeAction: (action: PracticeAction) => void;
+  onResetSimulation: () => void;
   backingSide: "left" | "right";
 };
 
@@ -19,7 +20,7 @@ function getActionMessage(
   backingSide: "left" | "right",
 ) {
   if (practiceAction === "backing") {
-    return "Backing slowly. Trailer angle will change based on your steering.";
+    return "Backing slowly. Trailer angle changes based on your current steering angle and momentum.";
   }
 
   if (practiceAction === "forward") {
@@ -69,6 +70,7 @@ function getButtonTextStyle(selected: boolean) {
 export function PracticeModeControls({
   practiceAction,
   onPracticeAction,
+  onResetSimulation,
   backingSide,
 }: Props) {
   const actionMessage = getActionMessage(practiceAction, backingSide);
@@ -156,6 +158,30 @@ export function PracticeModeControls({
           }}
         >
           🛑 Stop
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={onResetSimulation}
+        style={{
+          marginTop: 8,
+          paddingVertical: 12,
+          paddingHorizontal: 8,
+          borderRadius: 12,
+          backgroundColor: "#e0f2fe",
+          borderWidth: 1,
+          borderColor: "#0284c7",
+        }}
+      >
+        <Text
+          style={{
+            textAlign: "center",
+            fontSize: 13,
+            fontWeight: "900",
+            color: "#075985",
+          }}
+        >
+          🔄 Reset Simulation
         </Text>
       </TouchableOpacity>
 

@@ -5,6 +5,7 @@ import {
   getOverallRiskLevel,
   Scenario,
 } from "../utils/obstacleDistance";
+import { PracticeAction } from "./PracticeModeControls";
 import { SiteObstacle } from "./SiteObstacleSelector";
 
 type Props = {
@@ -13,6 +14,8 @@ type Props = {
   scenario: Scenario;
   obstacles: SiteObstacle[];
   trailerAngle: number;
+  steeringAngle: number;
+  practiceAction: PracticeAction;
 };
 
 function getCoachingMessage({
@@ -21,6 +24,8 @@ function getCoachingMessage({
   scenario,
   obstacles,
   trailerAngle,
+  steeringAngle,
+  practiceAction,
 }: Props) {
   const distances = getObstacleDistances({
     stepIndex,
@@ -43,6 +48,39 @@ function getCoachingMessage({
     },
     null as null | (typeof distances)[number],
   );
+
+  const absTrailerAngle = Math.abs(trailerAngle);
+  const absSteeringAngle = Math.abs(steeringAngle);
+
+  if (practiceAction === "stop") {
+    return {
+      title: "STOPPED",
+      message:
+        "Good. Check mirrors, trailer angle, and obstacle clearance before moving again.",
+      backgroundColor: "#0f172a",
+      textColor: "white",
+    };
+  }
+
+  if (absTrailerAngle >= 32) {
+    return {
+      title: "PULL FORWARD",
+      message:
+        "Trailer angle is getting too sharp. Pull forward to reduce jackknife risk.",
+      backgroundColor: "#dc2626",
+      textColor: "white",
+    };
+  }
+
+  if (absSteeringAngle >= 35 && practiceAction === "backing") {
+    return {
+      title: "REDUCE STEERING",
+      message:
+        "Steering input is very sharp while backing. Use smaller corrections.",
+      backgroundColor: "#f97316",
+      textColor: "white",
+    };
+  }
 
   if (riskLevel === "high") {
     if (closestObstacle) {

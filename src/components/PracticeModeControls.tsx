@@ -13,6 +13,8 @@ type Props = {
   onPracticeAction: (action: PracticeAction) => void;
   onResetSimulation: () => void;
   backingSide: "left" | "right";
+  jackknifeAutoStopActive?: boolean;
+  isRecoveringFromJackknife?: boolean;
 };
 
 function getActionMessage(
@@ -72,6 +74,8 @@ export function PracticeModeControls({
   onPracticeAction,
   onResetSimulation,
   backingSide,
+  jackknifeAutoStopActive = false,
+  isRecoveringFromJackknife = false,
 }: Props) {
   const actionMessage = getActionMessage(practiceAction, backingSide);
 
@@ -99,11 +103,28 @@ export function PracticeModeControls({
 
       <View style={{ flexDirection: "row", gap: 8 }}>
         <TouchableOpacity
-          onPress={() => onPracticeAction("backing")}
-          style={getButtonStyle(practiceAction === "backing")}
+          onPress={() => {
+            if (jackknifeAutoStopActive) return;
+            onPracticeAction("backing");
+          }}
+          disabled={jackknifeAutoStopActive}
+          style={[
+            getButtonStyle(practiceAction === "backing"),
+            jackknifeAutoStopActive
+              ? {
+                  backgroundColor: "#94a3b8",
+                  opacity: 0.6,
+                }
+              : null,
+          ]}
         >
-          <Text style={getButtonTextStyle(practiceAction === "backing")}>
-            ⬇️ Back up
+          <Text
+            style={[
+              getButtonTextStyle(practiceAction === "backing"),
+              jackknifeAutoStopActive ? { color: "white" } : null,
+            ]}
+          >
+            {jackknifeAutoStopActive ? "🛑 Auto Stop Active" : "⬇️ Back up"}
           </Text>
         </TouchableOpacity>
 
@@ -116,6 +137,44 @@ export function PracticeModeControls({
           </Text>
         </TouchableOpacity>
       </View>
+
+      {isRecoveringFromJackknife ? (
+        <View
+          style={{
+            marginTop: 10,
+            padding: 12,
+            borderRadius: 14,
+            backgroundColor: "#fff7ed",
+            borderWidth: 1,
+            borderColor: "#fdba74",
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 15,
+              fontWeight: "900",
+              color: "#9a3412",
+              textAlign: "center",
+            }}
+          >
+            Recovery Coaching
+          </Text>
+
+          <Text
+            style={{
+              marginTop: 6,
+              fontSize: 13,
+              fontWeight: "700",
+              color: "#7c2d12",
+              textAlign: "center",
+              lineHeight: 18,
+            }}
+          >
+            Pull forward slowly until the trailer angle drops below the danger
+            zone. Then straighten the wheel before backing again.
+          </Text>
+        </View>
+      ) : null}
 
       <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
         <TouchableOpacity

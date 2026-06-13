@@ -1,15 +1,25 @@
 "use client";
 
-import React, { useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { useEffect, useState } from "react";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+
 import { GuidanceCard } from "../components/GuidanceCard";
 import { ParkingTypeSelector } from "../components/ParkingTypeSelector";
 import { RigSetupCard } from "../components/RigSetupCard";
+import { SavedRigSetupCard } from "../components/SavedRigSetupCard";
 import {
   SiteObstacle,
   SiteObstacleSelector,
 } from "../components/SiteObstacleSelector";
 import { ParkingType, guidanceByType } from "../constants/parkingGuidance";
+
+const RIG_SETUP_STORAGE_KEY = "rvParkingRigSetup";
+
+type SavedRigSetup = {
+  truckLength: string;
+  trailerLength: string;
+};
 
 function getObstacleWarning(obstacles: SiteObstacle[], stepIndex: number) {
   const warnings: string[] = [];
@@ -50,18 +60,70 @@ function getObstacleWarning(obstacles: SiteObstacle[], stepIndex: number) {
 export default function Index() {
   const [truckLength, setTruckLength] = useState("20");
   const [trailerLength, setTrailerLength] = useState("30");
+  const [isEditingRigSetup, setIsEditingRigSetup] = useState(false);
+
   const [parkingType, setParkingType] = useState<ParkingType>("back-in");
   const [stepIndex, setStepIndex] = useState(0);
+
   const [backingSide, setBackingSide] = useState<"left" | "right">("left");
   const [scenario, setScenario] = useState<"easy" | "normal" | "tight">(
     "normal",
   );
+
   const [obstacles, setObstacles] = useState<SiteObstacle[]>([]);
 
   const totalLength = (Number(truckLength) || 0) + (Number(trailerLength) || 0);
   const steps = guidanceByType[parkingType];
   const currentStep = steps[stepIndex];
   const obstacleWarnings = getObstacleWarning(obstacles, stepIndex);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadRigSetup() {
+      try {
+        const savedSetup = await AsyncStorage.getItem(RIG_SETUP_STORAGE_KEY);
+
+        if (!mounted || !savedSetup) return;
+
+        const parsed = JSON.parse(savedSetup) as Partial<SavedRigSetup>;
+
+        if (typeof parsed.truckLength === "string") {
+          setTruckLength(parsed.truckLength);
+        }
+
+        if (typeof parsed.trailerLength === "string") {
+          setTrailerLength(parsed.trailerLength);
+        }
+      } catch (error) {
+        console.warn("Failed to load rig setup", error);
+      }
+    }
+
+    loadRigSetup();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    async function saveRigSetup() {
+      try {
+        await AsyncStorage.setItem(
+          RIG_SETUP_STORAGE_KEY,
+          JSON.stringify({
+            truckLength,
+            trailerLength,
+          }),
+        );
+      } catch (error) {
+        console.warn("Failed to save rig setup", error);
+      }
+    }
+
+    saveRigSetup();
+  }, [truckLength, trailerLength]);
 
   function selectParkingType(type: ParkingType) {
     setParkingType(type);
@@ -91,31 +153,66 @@ export default function Index() {
         paddingBottom: 80,
       }}
     >
-      <Text style={{ fontSize: 28, fontWeight: "bold" }}>
+      <Text
+        style={{
+          fontSize: 28,
+          fontWeight: "bold",
+          color: "#0f172a",
+        }}
+      >
         RV Parking Assistant
       </Text>
 
-      <GuidanceCard
-        currentStep={currentStep}
-        stepIndex={stepIndex}
-        totalSteps={steps.length}
-        backingSide={backingSide}
-        setBackingSide={setBackingSide}
-        goBack={goBack}
-        goNext={goNext}
-        restartPractice={restartPractice}
-        scenario={scenario}
-        setScenario={setScenario}
-        obstacles={obstacles}
-      />
+      <Text
+        style={{
+          marginTop: 6,
+          fontSize: 14,
+          fontWeight: "700",
+          color: "#475569",
+        }}
+      >
+        Total rig length: {totalLength} ft
+      </Text>
 
-      <RigSetupCard
-        truckLength={truckLength}
-        trailerLength={trailerLength}
-        totalLength={totalLength}
-        setTruckLength={setTruckLength}
-        setTrailerLength={setTrailerLength}
-      />
+      {isEditingRigSetup ? (
+        <>
+          <RigSetupCard
+            truckLength={truckLength}
+            setTruckLength={setTruckLength}
+            trailerLength={trailerLength}
+            setTrailerLength={setTrailerLength}
+          />
+
+          <TouchableOpacity
+            onPress={() => setIsEditingRigSetup(false)}
+            style={{
+              marginTop: 10,
+              padding: 12,
+              borderRadius: 12,
+              backgroundColor: "#16a34a",
+            }}
+          >
+            <Text
+              style={{
+                color: "white",
+                textAlign: "center",
+                fontSize: 13,
+                fontWeight: "900",
+              }}
+            >
+              ✅ Done Editing Setup
+            </Text>
+          </TouchableOpacity>
+        </>
+      ) : (
+        <SavedRigSetupCard
+          truckLength={truckLength}
+          trailerLength={trailerLength}
+          backingSide={backingSide}
+          scenario={scenario}
+          onEditSetup={() => setIsEditingRigSetup(true)}
+        />
+      )}
 
       <ParkingTypeSelector
         parkingType={parkingType}
@@ -135,7 +232,12 @@ export default function Index() {
             marginVertical: 10,
           }}
         >
-          <Text style={{ fontWeight: "700", marginBottom: 6 }}>
+          <Text
+            style={{
+              fontWeight: "700",
+              marginBottom: 6,
+            }}
+          >
             Obstacle Coaching
           </Text>
 
@@ -146,6 +248,20 @@ export default function Index() {
           ))}
         </View>
       ) : null}
+
+      <GuidanceCard
+        currentStep={currentStep}
+        stepIndex={stepIndex}
+        totalSteps={steps.length}
+        backingSide={backingSide}
+        setBackingSide={setBackingSide}
+        goBack={goBack}
+        goNext={goNext}
+        restartPractice={restartPractice}
+        scenario={scenario}
+        setScenario={setScenario}
+        obstacles={obstacles}
+      />
     </ScrollView>
   );
 }

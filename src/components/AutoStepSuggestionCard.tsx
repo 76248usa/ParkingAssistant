@@ -11,6 +11,8 @@ type Props = {
   scenario: Scenario;
   stepIndex: number;
   backingSide: "left" | "right";
+  jackknifeAutoStopActive?: boolean;
+  isRecoveringFromJackknife?: boolean;
 };
 
 function getJackknifeLimit(scenario: Scenario) {
@@ -22,136 +24,183 @@ function getJackknifeLimit(scenario: Scenario) {
 function getSuggestedStep({
   practiceAction,
   simulatedSteeringAngle,
-  simulatedTruckAngle,
   simulatedTrailerAngle,
   scenario,
   stepIndex,
   backingSide,
+  jackknifeAutoStopActive,
+  isRecoveringFromJackknife,
 }: Props) {
   const absTrailerAngle = Math.abs(simulatedTrailerAngle);
   const absSteeringAngle = Math.abs(simulatedSteeringAngle);
   const jackknifeLimit = getJackknifeLimit(scenario);
 
+  if (jackknifeAutoStopActive) {
+    return {
+      title: "Pull forward slowly",
+      message:
+        "Jackknife prevention is active. Do not back up. Pull forward until the trailer angle is safer.",
+      color: "#dc2626",
+      backgroundColor: "#fee2e2",
+      borderColor: "#ef4444",
+    };
+  }
+
+  if (isRecoveringFromJackknife && absTrailerAngle >= 12) {
+    return {
+      title: "Keep pulling forward",
+      message:
+        "Continue pulling forward slowly until the trailer angle drops closer to straight.",
+      color: "#ea580c",
+      backgroundColor: "#fff7ed",
+      borderColor: "#fdba74",
+    };
+  }
+
+  if (isRecoveringFromJackknife && absTrailerAngle < 12) {
+    return {
+      title: "Straighten and resume",
+      message:
+        "Trailer angle is safer now. Straighten the wheel, check both mirrors, then resume backing slowly.",
+      color: "#15803d",
+      backgroundColor: "#dcfce7",
+      borderColor: "#22c55e",
+    };
+  }
+
   if (practiceAction === "stop") {
     return {
-      title: "Suggested Next Step",
-      action: "Check mirrors",
+      title: "Check before moving",
       message:
-        "You are stopped. Check both mirrors, trailer angle, and obstacle clearance before moving again.",
+        "You are stopped. Check both mirrors, trailer angle, campsite obstacles, and clearance before moving again.",
+      color: "#334155",
       backgroundColor: "#f8fafc",
       borderColor: "#cbd5e1",
-      textColor: "#0f172a",
     };
   }
 
   if (absTrailerAngle >= jackknifeLimit) {
     return {
-      title: "Suggested Next Step",
-      action: "⬆️ Pull forward",
+      title: "Pull forward now",
       message:
-        "Trailer angle is too sharp. Pull forward to reduce jackknife risk before backing again.",
+        "Trailer angle is too sharp. Pull forward to reduce the angle before backing again.",
+      color: "#dc2626",
       backgroundColor: "#fee2e2",
       borderColor: "#ef4444",
-      textColor: "#7f1d1d",
     };
   }
 
   if (absTrailerAngle >= jackknifeLimit - 6) {
     return {
-      title: "Suggested Next Step",
-      action: "🛑 Stop and correct",
+      title: "Stop and correct",
       message:
-        "Trailer angle is getting close to the limit. Stop, straighten the wheel, then pull forward if needed.",
+        "Trailer angle is getting close to the danger zone. Stop, straighten slightly, and consider pulling forward.",
+      color: "#ea580c",
       backgroundColor: "#fff7ed",
-      borderColor: "#fb923c",
-      textColor: "#7c2d12",
+      borderColor: "#fdba74",
     };
   }
 
   if (absSteeringAngle >= 35 && practiceAction === "backing") {
     return {
-      title: "Suggested Next Step",
-      action: "Reduce steering",
+      title: "Reduce steering",
       message:
-        "Steering input is too sharp while backing. Straighten the wheel slightly before continuing.",
-      backgroundColor: "#fff7ed",
-      borderColor: "#fb923c",
-      textColor: "#7c2d12",
+        "The wheel is turned sharply while backing. Use smaller corrections to avoid over-angling the trailer.",
+      color: "#ca8a04",
+      backgroundColor: "#fefce8",
+      borderColor: "#fde047",
     };
   }
 
   if (stepIndex === 0) {
     return {
-      title: "Suggested Next Step",
-      action: "⬇️ Back up slowly",
+      title: "Back up slowly",
       message:
-        "Your setup is straight. Begin backing slowly and watch the trailer in both mirrors.",
-      backgroundColor: "#dcfce7",
-      borderColor: "#22c55e",
-      textColor: "#14532d",
+        "Keep the wheel mostly straight and begin backing slowly while watching both mirrors.",
+      color: "#0e7490",
+      backgroundColor: "#ecfeff",
+      borderColor: "#67e8f9",
     };
   }
 
   if (stepIndex === 1) {
     return {
-      title: "Suggested Next Step",
-      action: backingSide === "left" ? "↶ Steer left" : "↷ Steer right",
+      title:
+        backingSide === "left" ? "Steer left gently" : "Steer right gently",
       message:
         backingSide === "left"
-          ? "Begin the trailer turn toward the driver side with a controlled left steering input."
-          : "Begin the trailer turn toward the passenger side with a controlled right steering input.",
-      backgroundColor: "#ecfeff",
-      borderColor: "#06b6d4",
-      textColor: "#155e75",
+          ? "Begin turning the trailer toward the driver's side. Use small steering corrections."
+          : "Begin turning the trailer toward the passenger side. Use small steering corrections.",
+      color: "#2563eb",
+      backgroundColor: "#eff6ff",
+      borderColor: "#93c5fd",
     };
   }
 
   if (stepIndex === 2) {
     return {
-      title: "Suggested Next Step",
-      action: backingSide === "left" ? "↷ Steer right" : "↶ Steer left",
-      message:
+      title:
         backingSide === "left"
-          ? "Follow the trailer by steering right. Avoid letting the trailer angle grow too much."
-          : "Follow the trailer by steering left. Avoid letting the trailer angle grow too much.",
-      backgroundColor: "#ecfeff",
-      borderColor: "#06b6d4",
-      textColor: "#155e75",
+          ? "Follow with right steering"
+          : "Follow with left steering",
+      message:
+        "Follow the trailer as it enters the site. Watch the trailer angle and avoid letting it get too sharp.",
+      color: "#7c3aed",
+      backgroundColor: "#f5f3ff",
+      borderColor: "#c4b5fd",
     };
   }
 
   if (stepIndex === 3) {
     return {
-      title: "Suggested Next Step",
-      action: "Straighten wheel",
+      title: "Straighten the wheel",
       message:
-        "Straighten the wheel and back slowly. Keep the trailer angle small before entering the site.",
-      backgroundColor: "#ede9fe",
-      borderColor: "#8b5cf6",
-      textColor: "#4c1d95",
+        "Start straightening the truck and trailer. Small corrections are better than big steering changes.",
+      color: "#15803d",
+      backgroundColor: "#dcfce7",
+      borderColor: "#22c55e",
     };
   }
 
   return {
-    title: "Suggested Next Step",
-    action: "🛑 Stop and verify",
+    title: "Stop and verify",
     message:
-      "Stop and verify clearance before final backing. Check both sides and overhead.",
+      "Stop and check clearance, trailer position, hookups, and campsite obstacles before finishing.",
+    color: "#334155",
     backgroundColor: "#f8fafc",
     borderColor: "#cbd5e1",
-    textColor: "#0f172a",
   };
 }
 
-export function AutoStepSuggestionCard(props: Props) {
-  const suggestion = getSuggestedStep(props);
+export function AutoStepSuggestionCard({
+  practiceAction,
+  simulatedSteeringAngle,
+  simulatedTruckAngle,
+  simulatedTrailerAngle,
+  scenario,
+  stepIndex,
+  backingSide,
+  jackknifeAutoStopActive = false,
+  isRecoveringFromJackknife = false,
+}: Props) {
+  const suggestion = getSuggestedStep({
+    practiceAction,
+    simulatedSteeringAngle,
+    simulatedTruckAngle,
+    simulatedTrailerAngle,
+    scenario,
+    stepIndex,
+    backingSide,
+    jackknifeAutoStopActive,
+    isRecoveringFromJackknife,
+  });
 
   return (
     <View
       style={{
         marginTop: 12,
         padding: 12,
-        borderRadius: 16,
+        borderRadius: 14,
         backgroundColor: suggestion.backgroundColor,
         borderWidth: 1,
         borderColor: suggestion.borderColor,
@@ -159,10 +208,22 @@ export function AutoStepSuggestionCard(props: Props) {
     >
       <Text
         style={{
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: "900",
-          color: suggestion.textColor,
-          marginBottom: 4,
+          color: suggestion.color,
+          textTransform: "uppercase",
+          letterSpacing: 0.6,
+        }}
+      >
+        Suggested Next Step
+      </Text>
+
+      <Text
+        style={{
+          marginTop: 5,
+          fontSize: 16,
+          fontWeight: "900",
+          color: suggestion.color,
         }}
       >
         {suggestion.title}
@@ -170,20 +231,10 @@ export function AutoStepSuggestionCard(props: Props) {
 
       <Text
         style={{
-          fontSize: 18,
-          fontWeight: "900",
-          color: suggestion.textColor,
-          marginBottom: 6,
-        }}
-      >
-        {suggestion.action}
-      </Text>
-
-      <Text
-        style={{
+          marginTop: 6,
           fontSize: 13,
           fontWeight: "700",
-          color: suggestion.textColor,
+          color: "#334155",
           lineHeight: 18,
         }}
       >

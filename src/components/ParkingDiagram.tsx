@@ -123,7 +123,6 @@ export function ParkingDiagram({
           borderRadius: 10,
         }}
       />
-
       {/* Obstacle icons */}
       {obstacles.includes("treeLeft") && (
         <Text
@@ -138,7 +137,6 @@ export function ParkingDiagram({
           🌳
         </Text>
       )}
-
       {obstacles.includes("poleRight") && (
         <Text
           style={{
@@ -152,7 +150,6 @@ export function ParkingDiagram({
           🚧
         </Text>
       )}
-
       {obstacles.includes("lowBranch") && (
         <Text
           style={{
@@ -166,7 +163,6 @@ export function ParkingDiagram({
           🌿
         </Text>
       )}
-
       {obstacles.includes("tightHookupSide") && (
         <Text
           style={{
@@ -180,23 +176,22 @@ export function ParkingDiagram({
           ⚡
         </Text>
       )}
-
       {movementTrail.map((point, index) => (
         <View
-          key={index}
+          key={`${point.x}-${point.y}-${index}`}
           style={{
             position: "absolute",
             left: point.x,
             top: point.y,
-            width: 10,
-            height: 10,
-            borderRadius: 4,
+            width: 9,
+            height: 9,
+            borderRadius: 999,
             backgroundColor: "#f97316",
-            opacity: 0.25 + index * 0.08,
+            opacity: 0.25 + index * 0.04,
+            zIndex: 4,
           }}
         />
       ))}
-
       {/* Predicted trailer path */}
       <View
         style={{
@@ -222,7 +217,6 @@ export function ParkingDiagram({
           ],
         }}
       />
-
       <View
         style={{
           position: "absolute",
@@ -235,7 +229,6 @@ export function ParkingDiagram({
           opacity: 0.9,
         }}
       />
-
       <Text
         style={{
           position: "absolute",
@@ -248,7 +241,6 @@ export function ParkingDiagram({
       >
         PARKING SPACE
       </Text>
-
       {/* Trailer */}
       <Animated.View
         style={{
@@ -272,7 +264,6 @@ export function ParkingDiagram({
           Trailer
         </Text>
       </Animated.View>
-
       {/* Hitch */}
       <Animated.View
         style={{
@@ -286,7 +277,6 @@ export function ParkingDiagram({
           transform: [{ rotate: truckRotation }],
         }}
       />
-
       {/* Truck */}
       <Animated.View
         style={{
@@ -306,7 +296,6 @@ export function ParkingDiagram({
           Truck
         </Text>
       </Animated.View>
-
       <Text
         style={{
           position: "absolute",
@@ -319,7 +308,6 @@ export function ParkingDiagram({
       >
         {backingSide === "left" ? "Left-side back-in" : "Right-side back-in"}
       </Text>
-
       <Text
         style={{
           position: "absolute",
@@ -332,7 +320,6 @@ export function ParkingDiagram({
       >
         {steeringPreviewLabel}
       </Text>
-
       <Text
         style={{
           position: "absolute",
@@ -345,7 +332,6 @@ export function ParkingDiagram({
       >
         Predicted trailer path
       </Text>
-
       <Text
         style={{
           position: "absolute",

@@ -1,7 +1,8 @@
 "use client";
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Speech from "expo-speech";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { GuidanceStep } from "../constants/parkingGuidance";
 import { AutoCoachingBanner } from "./AutoCoachingBanner";
@@ -10,14 +11,26 @@ import { CollisionRiskCard } from "./CollisionRiskCard";
 import { HitchAngleIndicator } from "./HitchAngleIndicator";
 import { ObstacleDistanceCard } from "./ObstacleDistanceCard";
 import { ParkingDiagram } from "./ParkingDiagram";
+import { PracticeHistoryCard, PracticeSession } from "./PracticeHistoryCard";
 import { PracticeAction, PracticeModeControls } from "./PracticeModeControls";
+import { PracticeTipsCard } from "./PracticeTipsCard";
+import { ProgressTrendCard } from "./ProgressTrendCard";
+import { SessionStats, SessionStatsCard } from "./SessionStatsCard";
+import { SessionSummaryCard } from "./SessionSummaryCard";
 import { SimulatorStatusCard } from "./SimulatorStatusCard";
 import { SiteObstacle } from "./SiteObstacleSelector";
 import { SteeringAmountIndicator } from "./SteeringAmountIndicator";
 import { SteeringWheel } from "./SteeringWheel";
 import { TrainingScoreCard } from "./TrainingScoreCard";
 
+const PRACTICE_HISTORY_STORAGE_KEY = "rvParkingPracticeHistory";
+const RIG_SETTINGS_STORAGE_KEY = "rvParkingRigSettings";
 type Scenario = "easy" | "normal" | "tight";
+
+type SavedRigSettings = {
+  backingSide: "left" | "right";
+  scenario: Scenario;
+};
 
 type Props = {
   currentStep: GuidanceStep;
@@ -51,9 +64,35 @@ export function GuidanceCard({
   const [simulatedSteeringAngle, setSimulatedSteeringAngle] = useState(0);
   const [simulatedTruckAngle, setSimulatedTruckAngle] = useState(0);
   const [simulatedTrailerAngle, setSimulatedTrailerAngle] = useState(0);
+  const [isRecoveringFromJackknife, setIsRecoveringFromJackknife] =
+    useState(false);
+
+  const [hasStartedPractice, setHasStartedPractice] = useState(false);
+  const [practiceSessions, setPracticeSessions] = useState<PracticeSession[]>(
+    [],
+  );
+  const [hasLoadedPracticeHistory, setHasLoadedPracticeHistory] =
+    useState(false);
+  const hasSavedCurrentSessionRef = useRef(false);
+  const [sessionStats, setSessionStats] = useState<SessionStats>({
+    backUps: 0,
+    pullForwards: 0,
+    steeringCorrections: 0,
+    autoStops: 0,
+    recoveryCompletions: 0,
+  });
+
+  const hasSpokenAutoStopRef = useRef(false);
+  const hasSpokenRecoveryCompleteRef = useRef(false);
+  const hasSpokenResumeBackingRef = useRef(false);
+  const hasCountedRecoveryCompleteRef = useRef(false);
+  const hasCountedAutoStopRef = useRef(false);
+
+  const [lastVoiceMessage, setLastVoiceMessage] = useState<string | null>(null);
   const [movementTrail, setMovementTrail] = useState<
     { x: number; y: number; angle: number }[]
   >([]);
+
   const sideMultiplier = backingSide === "left" ? 1 : -1;
 
   const steeringGuidance =
@@ -96,13 +135,6 @@ export function GuidanceCard({
           ? 4 * sideMultiplier
           : 0;
 
-  useEffect(() => {
-    setSimulatedSteeringAngle(steeringAngle);
-    setSimulatedTruckAngle(truckAngle);
-    setSimulatedTrailerAngle(trailerAngle);
-    setPracticeAction("idle");
-  }, [stepIndex, backingSide, steeringAngle, truckAngle, trailerAngle]);
-
   const steeringLabel =
     stepIndex === 1
       ? backingSide === "left"
@@ -140,6 +172,388 @@ export function GuidanceCard({
   const voicePrompt =
     currentStep.voicePrompt ?? `${steeringGuidance}. ${currentStep.title}`;
 
+  function clamp(value: number, min: number, max: number) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function moveTowardZero(value: number, amount: number) {
+    if (value > 0) return Math.max(0, value - amount);
+    if (value < 0) return Math.min(0, value + amount);
+    return 0;
+  }
+
+  async function saveRigSettings(nextSettings: SavedRigSettings) {
+    try {
+      await AsyncStorage.setItem(
+        RIG_SETTINGS_STORAGE_KEY,
+        JSON.stringify(nextSettings),
+      );
+    } catch (error) {
+      console.warn("Failed to save rig settings", error);
+    }
+  }
+
+  function calculateTrainingScore() {
+    const progressScore = Math.round(((stepIndex + 1) / totalSteps) * 10);
+
+    const absTrailerAngle = Math.abs(simulatedTrailerAngle);
+
+    const safeLimit = scenario === "easy" ? 24 : scenario === "tight" ? 14 : 18;
+    const warningLimit =
+      scenario === "easy" ? 34 : scenario === "tight" ? 24 : 28;
+
+    const trailerPenalty =
+      absTrailerAngle <= safeLimit
+        ? 0
+        : absTrailerAngle <= warningLimit
+          ? 8
+          : 16;
+
+    const steeringPenalty =
+      sessionStats.steeringCorrections <= 6
+        ? 0
+        : (sessionStats.steeringCorrections - 6) * 2;
+
+    const autoStopPenalty = sessionStats.autoStops * 15;
+    const pullForwardPenalty = sessionStats.pullForwards * 3;
+    const recoveryBonus = sessionStats.recoveryCompletions * 5;
+
+    const rawScore =
+      100 +
+      progressScore +
+      recoveryBonus -
+      trailerPenalty -
+      steeringPenalty -
+      autoStopPenalty -
+      pullForwardPenalty;
+
+    return clamp(Math.round(rawScore), 0, 100);
+  }
+
+  function formatSessionTime() {
+    const now = new Date();
+
+    return now.toLocaleTimeString([], {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
+
+  function getTotalPracticeActions() {
+    return (
+      sessionStats.backUps +
+      sessionStats.pullForwards +
+      sessionStats.steeringCorrections
+    );
+  }
+
+  async function savePracticeSession() {
+    if (!hasLoadedPracticeHistory) return;
+    if (hasSavedCurrentSessionRef.current) return;
+    if (getTotalPracticeActions() === 0) return;
+
+    const newSession: PracticeSession = {
+      id: `${Date.now()}`,
+      completedAt: formatSessionTime(),
+      scenario,
+      backingSide,
+      score: calculateTrainingScore(),
+      stats: { ...sessionStats },
+    };
+
+    const nextSessions = [newSession, ...practiceSessions].slice(0, 5);
+
+    setPracticeSessions(nextSessions);
+    hasSavedCurrentSessionRef.current = true;
+
+    try {
+      await AsyncStorage.setItem(
+        PRACTICE_HISTORY_STORAGE_KEY,
+        JSON.stringify(nextSessions),
+      );
+    } catch (error) {
+      console.warn("Failed to save practice history", error);
+    }
+  }
+  function getScenarioPhysicsMultiplier() {
+    if (scenario === "easy") return 0.75;
+    if (scenario === "tight") return 1.25;
+    return 1;
+  }
+
+  function getJackknifeLimit() {
+    if (scenario === "easy") return 42;
+    if (scenario === "tight") return 32;
+    return 36;
+  }
+
+  function isJackknifeAutoStop(trailerAngleValue: number) {
+    const autoStopLimit =
+      scenario === "easy" ? 36 : scenario === "tight" ? 26 : 30;
+
+    return Math.abs(trailerAngleValue) >= autoStopLimit;
+  }
+
+  function calculateTrailerChangeWhileBacking({
+    steeringAngle,
+    trailerAngle,
+  }: {
+    steeringAngle: number;
+    trailerAngle: number;
+  }) {
+    const physicsMultiplier = getScenarioPhysicsMultiplier();
+
+    const steeringInfluence = steeringAngle * -0.12;
+    const trailerMomentum = trailerAngle * 0.06;
+
+    return (steeringInfluence + trailerMomentum) * physicsMultiplier;
+  }
+
+  function incrementSessionStat(key: keyof SessionStats) {
+    setSessionStats((current) => ({
+      ...current,
+      [key]: current[key] + 1,
+    }));
+  }
+
+  function resetSessionStats() {
+    setSessionStats({
+      backUps: 0,
+      pullForwards: 0,
+      steeringCorrections: 0,
+      autoStops: 0,
+      recoveryCompletions: 0,
+    });
+  }
+
+  function resetSafetyFlags() {
+    hasSpokenAutoStopRef.current = false;
+    hasSpokenRecoveryCompleteRef.current = false;
+    hasSpokenResumeBackingRef.current = false;
+    hasCountedRecoveryCompleteRef.current = false;
+    hasCountedAutoStopRef.current = false;
+    setLastVoiceMessage(null);
+  }
+
+  function resetSimulation() {
+    setSimulatedSteeringAngle(steeringAngle);
+    setSimulatedTruckAngle(truckAngle);
+    setSimulatedTrailerAngle(trailerAngle);
+    setPracticeAction("idle");
+    setMovementTrail([]);
+    setIsRecoveringFromJackknife(false);
+    setHasStartedPractice(false);
+    resetSafetyFlags();
+    resetSessionStats();
+    hasSavedCurrentSessionRef.current = false;
+  }
+
+  function startNewSession() {
+    setSimulatedSteeringAngle(steeringAngle);
+    setSimulatedTruckAngle(truckAngle);
+    setSimulatedTrailerAngle(trailerAngle);
+    setPracticeAction("idle");
+    setHasStartedPractice(false);
+    setMovementTrail([]);
+    setIsRecoveringFromJackknife(false);
+
+    hasSavedCurrentSessionRef.current = false;
+
+    resetSafetyFlags();
+    resetSessionStats();
+  }
+  const jackknifeAutoStopActive = isJackknifeAutoStop(simulatedTrailerAngle);
+
+  useEffect(() => {
+    if (jackknifeAutoStopActive) {
+      setIsRecoveringFromJackknife(true);
+
+      if (!hasCountedAutoStopRef.current) {
+        hasCountedAutoStopRef.current = true;
+        incrementSessionStat("autoStops");
+      }
+    }
+
+    if (!jackknifeAutoStopActive) {
+      hasCountedAutoStopRef.current = false;
+    }
+  }, [jackknifeAutoStopActive]);
+  const recoveryComplete =
+    isRecoveringFromJackknife &&
+    !jackknifeAutoStopActive &&
+    Math.abs(simulatedTrailerAngle) < 12;
+
+  const showResumeBackingCoaching = recoveryComplete;
+  const resumeBackingMessage =
+    "Resume backing slowly. Straighten the wheel, check both mirrors, and use small steering corrections.";
+
+  function speakSafetyMessage(message: string) {
+    setLastVoiceMessage(message);
+
+    if (!voiceEnabled) return;
+
+    Speech.stop();
+    Speech.speak(message, {
+      language: "en-US",
+      rate: 0.9,
+      pitch: 1.0,
+    });
+  }
+
+  function repeatLastSafetyMessage() {
+    if (!lastVoiceMessage) return;
+
+    if (!voiceEnabled) {
+      setVoiceEnabled(true);
+    }
+
+    Speech.stop();
+    Speech.speak(lastVoiceMessage, {
+      language: "en-US",
+      rate: 0.9,
+      pitch: 1.0,
+    });
+  }
+
+  useEffect(() => {
+    if (recoveryComplete && !hasCountedRecoveryCompleteRef.current) {
+      hasCountedRecoveryCompleteRef.current = true;
+      incrementSessionStat("recoveryCompletions");
+    }
+
+    if (!isRecoveringFromJackknife) {
+      hasCountedRecoveryCompleteRef.current = false;
+    }
+  }, [recoveryComplete, isRecoveringFromJackknife]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadRigSettings() {
+      try {
+        const savedSettings = await AsyncStorage.getItem(
+          RIG_SETTINGS_STORAGE_KEY,
+        );
+
+        if (!mounted || !savedSettings) return;
+
+        const parsed = JSON.parse(savedSettings) as Partial<SavedRigSettings>;
+
+        if (parsed.backingSide === "left" || parsed.backingSide === "right") {
+          setBackingSide(parsed.backingSide);
+        }
+
+        if (
+          parsed.scenario === "easy" ||
+          parsed.scenario === "normal" ||
+          parsed.scenario === "tight"
+        ) {
+          setScenario(parsed.scenario);
+        }
+      } catch (error) {
+        console.warn("Failed to load rig settings", error);
+      }
+    }
+
+    loadRigSettings();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadPracticeHistory() {
+      try {
+        const savedHistory = await AsyncStorage.getItem(
+          PRACTICE_HISTORY_STORAGE_KEY,
+        );
+
+        if (!mounted) return;
+
+        if (!savedHistory) {
+          setHasLoadedPracticeHistory(true);
+          return;
+        }
+
+        const parsed = JSON.parse(savedHistory) as PracticeSession[];
+
+        if (Array.isArray(parsed)) {
+          setPracticeSessions(parsed.slice(0, 5));
+        }
+      } catch (error) {
+        console.warn("Failed to load practice history", error);
+      } finally {
+        if (mounted) {
+          setHasLoadedPracticeHistory(true);
+        }
+      }
+    }
+
+    loadPracticeHistory();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (stepIndex === totalSteps - 1 && hasLoadedPracticeHistory) {
+      savePracticeSession();
+    }
+  }, [
+    stepIndex,
+    totalSteps,
+    hasLoadedPracticeHistory,
+    sessionStats,
+    practiceSessions,
+    scenario,
+    backingSide,
+  ]);
+  async function clearPracticeHistory() {
+    setPracticeSessions([]);
+    hasSavedCurrentSessionRef.current = false;
+
+    try {
+      await AsyncStorage.removeItem(PRACTICE_HISTORY_STORAGE_KEY);
+    } catch (error) {
+      console.warn("Failed to clear practice history", error);
+    }
+  }
+  useEffect(() => {
+    if (jackknifeAutoStopActive && !hasSpokenAutoStopRef.current) {
+      hasSpokenAutoStopRef.current = true;
+      hasSpokenRecoveryCompleteRef.current = false;
+      hasSpokenResumeBackingRef.current = false;
+
+      speakSafetyMessage(
+        "Stop. Jackknife prevention active. Pull forward slowly to straighten the trailer.",
+      );
+    }
+
+    if (recoveryComplete && !hasSpokenRecoveryCompleteRef.current) {
+      hasSpokenRecoveryCompleteRef.current = true;
+
+      speakSafetyMessage("Recovery complete. Trailer angle is safe again.");
+    }
+
+    if (showResumeBackingCoaching && !hasSpokenResumeBackingRef.current) {
+      hasSpokenResumeBackingRef.current = true;
+
+      const timeoutId = setTimeout(() => {
+        speakSafetyMessage(resumeBackingMessage);
+      }, 1600);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [
+    jackknifeAutoStopActive,
+    recoveryComplete,
+    showResumeBackingCoaching,
+    resumeBackingMessage,
+    voiceEnabled,
+  ]);
   useEffect(() => {
     if (!voiceEnabled) {
       Speech.stop();
@@ -158,78 +572,62 @@ export function GuidanceCard({
     };
   }, [voicePrompt, voiceEnabled]);
 
-  function clamp(value: number, min: number, max: number) {
-    return Math.max(min, Math.min(max, value));
-  }
-
-  function moveTowardZero(value: number, amount: number) {
-    if (value > 0) return Math.max(0, value - amount);
-    if (value < 0) return Math.min(0, value + amount);
-    return 0;
-  }
-
-  function getScenarioPhysicsMultiplier() {
-    if (scenario === "easy") return 0.75;
-    if (scenario === "tight") return 1.25;
-    return 1;
-  }
-
-  function getJackknifeLimit() {
-    if (scenario === "easy") return 42;
-    if (scenario === "tight") return 32;
-    return 36;
-  }
-
-  function calculateTrailerChangeWhileBacking({
-    steeringAngle,
-    trailerAngle,
-  }: {
-    steeringAngle: number;
-    trailerAngle: number;
-  }) {
-    const physicsMultiplier = getScenarioPhysicsMultiplier();
-
-    const steeringInfluence = steeringAngle * -0.12;
-    const trailerMomentum = trailerAngle * 0.06;
-
-    return (steeringInfluence + trailerMomentum) * physicsMultiplier;
-  }
-
-  function calculateTruckChangeFromSteering(steeringAngle: number) {
-    return steeringAngle * 0.08;
-  }
-  function resetSimulation() {
+  useEffect(() => {
     setSimulatedSteeringAngle(steeringAngle);
     setSimulatedTruckAngle(truckAngle);
     setSimulatedTrailerAngle(trailerAngle);
     setPracticeAction("idle");
+    setHasStartedPractice(false);
+    setIsRecoveringFromJackknife(false);
     setMovementTrail([]);
-  }
+    resetSafetyFlags();
+  }, [stepIndex, backingSide, steeringAngle, truckAngle, trailerAngle]);
 
   function handlePracticeAction(action: PracticeAction) {
     setPracticeAction(action);
 
+    if (action !== "stop") {
+      setHasStartedPractice(true);
+
+      // A new practice action means this is a new active session,
+      // so allow it to be saved again when the user reaches the final step.
+      hasSavedCurrentSessionRef.current = false;
+    }
+
     const jackknifeLimit = getJackknifeLimit();
 
     if (action === "steerLeft") {
+      incrementSessionStat("steeringCorrections");
+
       setSimulatedSteeringAngle((current) => clamp(current - 10, -45, 45));
-
-      // Add a small visual truck preview so the diagram reacts immediately
       setSimulatedTruckAngle((current) => clamp(current - 3, -25, 25));
-
       return;
     }
 
     if (action === "steerRight") {
+      incrementSessionStat("steeringCorrections");
+
       setSimulatedSteeringAngle((current) => clamp(current + 10, -45, 45));
-
-      // Add a small visual truck preview so the diagram reacts immediately
       setSimulatedTruckAngle((current) => clamp(current + 3, -25, 25));
-
       return;
     }
 
     if (action === "backing") {
+      incrementSessionStat("backUps");
+
+      if (isJackknifeAutoStop(simulatedTrailerAngle)) {
+        setPracticeAction("stop");
+        setIsRecoveringFromJackknife(true);
+        return;
+      }
+
+      if (isRecoveringFromJackknife && Math.abs(simulatedTrailerAngle) < 12) {
+        setIsRecoveringFromJackknife(false);
+        hasSpokenRecoveryCompleteRef.current = false;
+        hasSpokenResumeBackingRef.current = false;
+        hasCountedRecoveryCompleteRef.current = false;
+      }
+
       setSimulatedTruckAngle((currentTruckAngle) => {
         const steeringEffect = simulatedSteeringAngle * 0.08;
         const nextTruckAngle =
@@ -254,19 +652,35 @@ export function GuidanceCard({
       setMovementTrail((current) => {
         const nextIndex = current.length;
 
-        return [
-          ...current.slice(-10),
-          {
-            x: 70 + nextIndex * 12,
-            y: 160 - Math.min(Math.abs(simulatedTrailerAngle), 35),
-            angle: simulatedTrailerAngle,
-          },
-        ];
+        const trailerCurveAmount = Math.min(
+          Math.abs(simulatedTrailerAngle) * 0.9,
+          32,
+        );
+
+        const leftSidePoint = {
+          x: 190 - nextIndex * 12 - trailerCurveAmount,
+          y: 160 - nextIndex * 5,
+          angle: simulatedTrailerAngle,
+        };
+
+        const rightSidePoint = {
+          x: 55 + nextIndex * 12 + trailerCurveAmount,
+          y: 160 - nextIndex * 5,
+          angle: simulatedTrailerAngle,
+        };
+
+        const nextPoint =
+          backingSide === "left" ? leftSidePoint : rightSidePoint;
+
+        return [...current.slice(-12), nextPoint];
       });
 
       return;
     }
+
     if (action === "forward") {
+      incrementSessionStat("pullForwards");
+
       setSimulatedSteeringAngle((current) => moveTowardZero(current, 10));
       setSimulatedTruckAngle((current) => moveTowardZero(current, 8));
       setSimulatedTrailerAngle((current) => moveTowardZero(current, 10));
@@ -354,7 +768,17 @@ export function GuidanceCard({
           return (
             <TouchableOpacity
               key={side}
-              onPress={() => setBackingSide(side)}
+              onPress={() => {
+                setBackingSide(side);
+                saveRigSettings({
+                  backingSide: side,
+                  scenario,
+                });
+
+                setMovementTrail([]);
+                setIsRecoveringFromJackknife(false);
+                resetSafetyFlags();
+              }}
               style={{
                 flex: 1,
                 padding: 12,
@@ -385,7 +809,17 @@ export function GuidanceCard({
           return (
             <TouchableOpacity
               key={item}
-              onPress={() => setScenario(item)}
+              onPress={() => {
+                setScenario(item);
+                saveRigSettings({
+                  backingSide,
+                  scenario: item,
+                });
+
+                setMovementTrail([]);
+                setIsRecoveringFromJackknife(false);
+                resetSafetyFlags();
+              }}
               style={{
                 flex: 1,
                 padding: 10,
@@ -452,56 +886,42 @@ export function GuidanceCard({
             truckAngle={simulatedTruckAngle}
             trailerAngle={simulatedTrailerAngle}
             scenario={scenario}
+            sessionStats={sessionStats}
           />
-          <View
+
+          <SessionSummaryCard
+            scenario={scenario}
+            backingSide={backingSide}
+            sessionStats={sessionStats}
+            score={calculateTrainingScore()}
+          />
+
+          <TouchableOpacity
+            onPress={startNewSession}
             style={{
               marginTop: 12,
-              padding: 12,
+              padding: 14,
               borderRadius: 12,
-              backgroundColor: "#f8fafc",
-              borderWidth: 1,
-              borderColor: "#cbd5e1",
+              backgroundColor: "#0f172a",
             }}
           >
             <Text
               style={{
+                color: "white",
                 textAlign: "center",
-                fontSize: 12,
                 fontWeight: "900",
-                color: "#334155",
+                fontSize: 16,
               }}
             >
-              SESSION SUMMARY
+              🆕 Start New Session
             </Text>
-
-            <Text style={{ marginTop: 8, fontWeight: "700", color: "#0f172a" }}>
-              Scenario:{" "}
-              {scenario === "easy"
-                ? "Easy site"
-                : scenario === "normal"
-                  ? "Normal site"
-                  : "Tight site"}
-            </Text>
-
-            <Text style={{ marginTop: 4, fontWeight: "700", color: "#0f172a" }}>
-              Backing side:{" "}
-              {backingSide === "left"
-                ? "Left-side back-in"
-                : "Right-side back-in"}
-            </Text>
-
-            <Text style={{ marginTop: 4, fontWeight: "700", color: "#0f172a" }}>
-              Main coaching note:{" "}
-              {scenario === "tight"
-                ? "Use smaller steering corrections and stop more often."
-                : scenario === "easy"
-                  ? "Good practice setup. Focus on smooth steering."
-                  : "Keep watching the trailer angle and straighten early."}
-            </Text>
-          </View>
+          </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={restartPractice}
+            onPress={() => {
+              hasSavedCurrentSessionRef.current = false;
+              restartPractice();
+            }}
             style={{
               marginTop: 12,
               padding: 14,
@@ -633,13 +1053,247 @@ export function GuidanceCard({
         practiceAction={practiceAction}
         movementTrail={movementTrail}
       />
+      {jackknifeAutoStopActive ? (
+        <View
+          style={{
+            marginTop: 12,
+            padding: 12,
+            borderRadius: 14,
+            backgroundColor: "#fee2e2",
+            borderWidth: 1,
+            borderColor: "#ef4444",
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: "900",
+              color: "#991b1b",
+              textAlign: "center",
+            }}
+          >
+            🛑 Jackknife Prevention Auto Stop
+          </Text>
+
+          <Text
+            style={{
+              marginTop: 6,
+              fontSize: 13,
+              fontWeight: "700",
+              color: "#7f1d1d",
+              textAlign: "center",
+              lineHeight: 18,
+            }}
+          >
+            Trailer angle is too sharp. Stop backing and pull forward to
+            straighten the rig.
+          </Text>
+        </View>
+      ) : null}
+      {recoveryComplete ? (
+        <View
+          style={{
+            marginTop: 10,
+            padding: 12,
+            borderRadius: 14,
+            backgroundColor: "#dcfce7",
+            borderWidth: 1,
+            borderColor: "#22c55e",
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: "900",
+              color: "#14532d",
+              textAlign: "center",
+            }}
+          >
+            ✅ Recovery Complete
+          </Text>
+
+          <Text
+            style={{
+              marginTop: 6,
+              fontSize: 13,
+              fontWeight: "700",
+              color: "#14532d",
+              textAlign: "center",
+              lineHeight: 18,
+            }}
+          >
+            Trailer angle is safe again. Straighten the wheel, check both
+            mirrors, and resume backing slowly.
+          </Text>
+        </View>
+      ) : null}
+
+      {showResumeBackingCoaching ? (
+        <View
+          style={{
+            marginTop: 10,
+            padding: 12,
+            borderRadius: 14,
+            backgroundColor: "#e0f2fe",
+            borderWidth: 1,
+            borderColor: "#38bdf8",
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: "900",
+              color: "#075985",
+              textAlign: "center",
+            }}
+          >
+            🔁 Resume Backing Slowly
+          </Text>
+
+          <Text
+            style={{
+              marginTop: 6,
+              fontSize: 13,
+              fontWeight: "700",
+              color: "#075985",
+              textAlign: "center",
+              lineHeight: 18,
+            }}
+          >
+            Trailer angle is safe again. Straighten the wheel, check both
+            mirrors, and back up slowly with small steering corrections.
+          </Text>
+
+          <View
+            style={{
+              marginTop: 10,
+              padding: 10,
+              borderRadius: 12,
+              backgroundColor: "white",
+              borderWidth: 1,
+              borderColor: "#bae6fd",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: "900",
+                color: "#0f172a",
+                textAlign: "center",
+                lineHeight: 17,
+              }}
+            >
+              Next action: tap Back up only after the steering wheel is close to
+              straight.
+            </Text>
+          </View>
+        </View>
+      ) : null}
+      {lastVoiceMessage ? (
+        <View
+          style={{
+            marginTop: 10,
+            padding: 10,
+            borderRadius: 12,
+            backgroundColor: "#f8fafc",
+            borderWidth: 1,
+            borderColor: "#cbd5e1",
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 12,
+              fontWeight: "900",
+              color: "#334155",
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+            }}
+          >
+            Last Voice Coaching
+          </Text>
+
+          <Text
+            style={{
+              marginTop: 5,
+              fontSize: 13,
+              fontWeight: "700",
+              color: "#0f172a",
+              lineHeight: 18,
+            }}
+          >
+            {lastVoiceMessage}
+          </Text>
+
+          <TouchableOpacity
+            onPress={repeatLastSafetyMessage}
+            style={{
+              marginTop: 10,
+              paddingVertical: 10,
+              paddingHorizontal: 10,
+              borderRadius: 12,
+              backgroundColor: "#0f172a",
+            }}
+          >
+            <Text
+              style={{
+                color: "white",
+                textAlign: "center",
+                fontSize: 13,
+                fontWeight: "900",
+              }}
+            >
+              🔁 Repeat Safety Coaching
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
       <PracticeModeControls
         practiceAction={practiceAction}
         onPracticeAction={handlePracticeAction}
         onResetSimulation={resetSimulation}
         backingSide={backingSide}
+        jackknifeAutoStopActive={jackknifeAutoStopActive}
+        isRecoveringFromJackknife={isRecoveringFromJackknife}
       />
 
+      <TouchableOpacity
+        onPress={startNewSession}
+        style={{
+          marginTop: 10,
+          padding: 12,
+          borderRadius: 12,
+          backgroundColor: "#0f172a",
+          borderWidth: 1,
+          borderColor: "#0f172a",
+        }}
+      >
+        <Text
+          style={{
+            color: "white",
+            textAlign: "center",
+            fontWeight: "900",
+            fontSize: 13,
+          }}
+        >
+          🆕 Start New Session
+        </Text>
+      </TouchableOpacity>
+      {hasStartedPractice ||
+      jackknifeAutoStopActive ||
+      isRecoveringFromJackknife ? (
+        <AutoStepSuggestionCard
+          practiceAction={practiceAction}
+          simulatedSteeringAngle={simulatedSteeringAngle}
+          simulatedTruckAngle={simulatedTruckAngle}
+          simulatedTrailerAngle={simulatedTrailerAngle}
+          scenario={scenario}
+          stepIndex={stepIndex}
+          backingSide={backingSide}
+          jackknifeAutoStopActive={jackknifeAutoStopActive}
+          isRecoveringFromJackknife={isRecoveringFromJackknife}
+        />
+      ) : null}
       <SimulatorStatusCard
         practiceAction={practiceAction}
         simulatedSteeringAngle={simulatedSteeringAngle}
@@ -647,17 +1301,38 @@ export function GuidanceCard({
         simulatedTrailerAngle={simulatedTrailerAngle}
         scenario={scenario}
       />
+      <SessionStatsCard stats={sessionStats} />
 
-      <AutoStepSuggestionCard
-        practiceAction={practiceAction}
-        simulatedSteeringAngle={simulatedSteeringAngle}
-        simulatedTruckAngle={simulatedTruckAngle}
-        simulatedTrailerAngle={simulatedTrailerAngle}
-        scenario={scenario}
-        stepIndex={stepIndex}
-        backingSide={backingSide}
-      />
+      <PracticeHistoryCard sessions={practiceSessions} />
 
+      <ProgressTrendCard sessions={practiceSessions} />
+
+      <PracticeTipsCard sessions={practiceSessions} />
+
+      {practiceSessions.length > 0 ? (
+        <TouchableOpacity
+          onPress={clearPracticeHistory}
+          style={{
+            marginTop: 8,
+            padding: 10,
+            borderRadius: 12,
+            backgroundColor: "#fee2e2",
+            borderWidth: 1,
+            borderColor: "#fecaca",
+          }}
+        >
+          <Text
+            style={{
+              color: "#991b1b",
+              textAlign: "center",
+              fontWeight: "900",
+              fontSize: 12,
+            }}
+          >
+            Clear Practice History
+          </Text>
+        </TouchableOpacity>
+      ) : null}
       <ObstacleDistanceCard
         stepIndex={stepIndex}
         backingSide={backingSide}
@@ -665,7 +1340,6 @@ export function GuidanceCard({
         obstacles={obstacles}
         trailerAngle={simulatedTrailerAngle}
       />
-
       <AutoCoachingBanner
         stepIndex={stepIndex}
         backingSide={backingSide}

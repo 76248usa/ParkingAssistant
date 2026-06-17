@@ -1,53 +1,99 @@
 import { Text, TouchableOpacity, View } from "react-native";
-import { ParkingType, parkingTypes } from "../constants/parkingGuidance";
+import { ParkingType } from "../constants/parkingGuidance";
 
 type Props = {
   parkingType: ParkingType;
   selectParkingType: (type: ParkingType) => void;
 };
 
+const parkingTypes: {
+  label: string;
+  value: ParkingType;
+  emoji: string;
+}[] = [
+  {
+    label: "Back-in",
+    value: "back-in",
+    emoji: "↩️",
+  },
+  {
+    label: "Pull-through",
+    value: "pull-through",
+    emoji: "➡️",
+  },
+];
 export function ParkingTypeSelector({ parkingType, selectParkingType }: Props) {
   return (
-    <>
+    <View
+      style={{
+        marginTop: 12,
+        padding: 12,
+        borderRadius: 16,
+        backgroundColor: "#ffffff",
+        borderWidth: 1,
+        borderColor: "#cbd5e1",
+      }}
+    >
       <Text
         style={{
-          marginTop: 30,
-          fontSize: 18,
-          fontWeight: "bold",
+          fontSize: 12,
+          fontWeight: "900",
+          color: "#334155",
+          textTransform: "uppercase",
+          letterSpacing: 0.5,
+          marginBottom: 10,
         }}
       >
-        Parking type
+        Parking Type
       </Text>
 
-      <View style={{ marginTop: 10, gap: 10 }}>
-        {parkingTypes.map((item) => {
-          const selected = parkingType === item.value;
+      <View
+        style={{
+          flexDirection: "row",
+          gap: 8,
+        }}
+      >
+        {parkingTypes.map((type) => {
+          const isSelected = parkingType === type.value;
 
           return (
             <TouchableOpacity
-              key={item.value}
-              onPress={() => selectParkingType(item.value)}
+              key={type.value}
+              onPress={() => selectParkingType(type.value)}
               style={{
-                padding: 14,
-                borderRadius: 10,
+                flex: 1,
+                paddingVertical: 10,
+                paddingHorizontal: 6,
+                borderRadius: 12,
+                backgroundColor: isSelected ? "#0f172a" : "#f8fafc",
                 borderWidth: 1,
-                borderColor: selected ? "#0891b2" : "#ccc",
-                backgroundColor: selected ? "#0891b2" : "white",
+                borderColor: isSelected ? "#0f172a" : "#cbd5e1",
               }}
             >
               <Text
                 style={{
-                  color: selected ? "white" : "#111",
-                  fontWeight: "bold",
                   textAlign: "center",
+                  fontSize: 18,
+                  marginBottom: 2,
                 }}
               >
-                {item.label}
+                {type.emoji}
+              </Text>
+
+              <Text
+                style={{
+                  textAlign: "center",
+                  fontSize: 12,
+                  fontWeight: "900",
+                  color: isSelected ? "white" : "#334155",
+                }}
+              >
+                {type.label}
               </Text>
             </TouchableOpacity>
           );
         })}
       </View>
-    </>
+    </View>
   );
 }

@@ -1,5 +1,4 @@
-import React, { useEffect, useRef } from "react";
-import { Animated, Easing, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
 type Props = {
   steeringAngle: number;
@@ -7,93 +6,79 @@ type Props = {
 };
 
 export function SteeringWheel({ steeringAngle, label }: Props) {
-  const animatedRotation = useRef(new Animated.Value(steeringAngle)).current;
-
-  useEffect(() => {
-    Animated.timing(animatedRotation, {
-      toValue: steeringAngle,
-      duration: 500,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  }, [steeringAngle, animatedRotation]);
-
-  const rotation = animatedRotation.interpolate({
-    inputRange: [-90, 90],
-    outputRange: ["-90deg", "90deg"],
-  });
-
   return (
     <View
       style={{
+        marginTop: 8,
         alignItems: "center",
-        marginTop: 14,
       }}
     >
-      <Animated.View
+      <Text
         style={{
-          width: 90,
-          height: 90,
-          borderRadius: 45,
+          fontSize: 12,
+          fontWeight: "900",
+          color: "#475569",
+          textTransform: "uppercase",
+          letterSpacing: 0.5,
+          marginBottom: 4,
+        }}
+      >
+        Steering Wheel
+      </Text>
+
+      <View
+        style={{
+          width: 82,
+          height: 82,
+          borderRadius: 41,
           borderWidth: 8,
           borderColor: "#0f172a",
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: "white",
-          transform: [{ rotate: rotation }],
+          transform: [{ rotate: `${steeringAngle}deg` }],
+          backgroundColor: "#f8fafc",
         }}
       >
-        {/* Vertical spoke */}
         <View
           style={{
+            position: "absolute",
             width: 8,
-            height: 70,
-            backgroundColor: "#0f172a",
+            height: 34,
             borderRadius: 999,
-            position: "absolute",
+            backgroundColor: "#0f172a",
+            top: 8,
           }}
         />
 
-        {/* Horizontal spoke */}
         <View
           style={{
-            width: 65,
-            height: 8,
-            backgroundColor: "#0f172a",
-            borderRadius: 999,
             position: "absolute",
+            width: 48,
+            height: 6,
+            borderRadius: 999,
+            backgroundColor: "#0f172a",
           }}
         />
 
-        {/* Center hub */}
-        <Text
+        <View
           style={{
-            fontSize: 24,
+            width: 16,
+            height: 16,
+            borderRadius: 8,
+            backgroundColor: "#0f172a",
           }}
-        >
-          ●
-        </Text>
-      </Animated.View>
+        />
+      </View>
 
       <Text
         style={{
-          marginTop: 8,
-          fontSize: 14,
+          marginTop: 4,
+          fontSize: 13,
           fontWeight: "900",
           color: "#0f172a",
         }}
       >
         {label}
-      </Text>
-
-      <Text
-        style={{
-          marginTop: 4,
-          fontSize: 12,
-          color: "#64748b",
-        }}
-      >
-        {steeringAngle}°
       </Text>
     </View>
   );

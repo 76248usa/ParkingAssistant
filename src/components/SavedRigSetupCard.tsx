@@ -5,13 +5,14 @@ type Scenario = "easy" | "normal" | "tight";
 type Props = {
   truckLength: string;
   trailerLength: string;
+  totalLength: number;
   backingSide: "left" | "right";
   scenario: Scenario;
   onEditSetup: () => void;
 };
 
 function getBackingSideLabel(backingSide: "left" | "right") {
-  return backingSide === "left" ? "Left-side back-in" : "Right-side back-in";
+  return backingSide === "left" ? "Left-side" : "Right-side";
 }
 
 function getScenarioLabel(scenario: Scenario) {
@@ -23,96 +24,89 @@ function getScenarioLabel(scenario: Scenario) {
 export function SavedRigSetupCard({
   truckLength,
   trailerLength,
+  totalLength,
   backingSide,
   scenario,
   onEditSetup,
 }: Props) {
-  const truckLengthNumber = Number.parseFloat(truckLength);
-  const trailerLengthNumber = Number.parseFloat(trailerLength);
-
-  const totalRigLength =
-    Number.isFinite(truckLengthNumber) && Number.isFinite(trailerLengthNumber)
-      ? truckLengthNumber + trailerLengthNumber
-      : null;
-
   return (
     <View
       style={{
         marginTop: 12,
-        padding: 14,
+        padding: 12,
         borderRadius: 16,
         backgroundColor: "#f8fafc",
         borderWidth: 1,
         borderColor: "#cbd5e1",
       }}
     >
-      <Text
+      <View
         style={{
-          fontSize: 12,
-          fontWeight: "900",
-          color: "#334155",
-          textTransform: "uppercase",
-          letterSpacing: 0.5,
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 10,
         }}
       >
-        Saved Rig Setup
-      </Text>
+        <View style={{ flex: 1 }}>
+          <Text
+            style={{
+              fontSize: 12,
+              fontWeight: "900",
+              color: "#334155",
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+            }}
+          >
+            Saved Rig Setup
+          </Text>
 
-      <View style={{ marginTop: 10, gap: 6 }}>
-        <Text style={{ fontSize: 14, fontWeight: "800", color: "#0f172a" }}>
-          Truck length: {truckLength || "—"} ft
-        </Text>
+          <Text
+            style={{
+              marginTop: 6,
+              fontSize: 15,
+              fontWeight: "900",
+              color: "#0f172a",
+            }}
+          >
+            Rig: {truckLength || "—"} ft truck + {trailerLength || "—"} ft
+            trailer = {totalLength || "—"} ft
+          </Text>
 
-        <Text style={{ fontSize: 14, fontWeight: "800", color: "#0f172a" }}>
-          Trailer length: {trailerLength || "—"} ft
-        </Text>
+          <Text
+            style={{
+              marginTop: 4,
+              fontSize: 13,
+              fontWeight: "800",
+              color: "#64748b",
+            }}
+          >
+            {getBackingSideLabel(backingSide)} backing •{" "}
+            {getScenarioLabel(scenario)} difficulty
+          </Text>
+        </View>
 
-        <Text style={{ fontSize: 14, fontWeight: "800", color: "#0f172a" }}>
-          Total rig length: {totalRigLength != null ? totalRigLength : "—"} ft
-        </Text>
-
-        <Text style={{ fontSize: 14, fontWeight: "800", color: "#0f172a" }}>
-          Backing side: {getBackingSideLabel(backingSide)}
-        </Text>
-
-        <Text style={{ fontSize: 14, fontWeight: "800", color: "#0f172a" }}>
-          Difficulty: {getScenarioLabel(scenario)}
-        </Text>
-      </View>
-
-      <Text
-        style={{
-          marginTop: 10,
-          fontSize: 12,
-          fontWeight: "700",
-          color: "#64748b",
-          lineHeight: 17,
-        }}
-      >
-        These settings are saved on this device and used for your practice
-        simulator.
-      </Text>
-
-      <TouchableOpacity
-        onPress={onEditSetup}
-        style={{
-          marginTop: 12,
-          padding: 12,
-          borderRadius: 12,
-          backgroundColor: "#0f172a",
-        }}
-      >
-        <Text
+        <TouchableOpacity
+          onPress={onEditSetup}
           style={{
-            color: "white",
-            textAlign: "center",
-            fontSize: 13,
-            fontWeight: "900",
+            paddingVertical: 10,
+            paddingHorizontal: 12,
+            borderRadius: 12,
+            backgroundColor: "#0f172a",
           }}
         >
-          ✏️ Edit Rig Setup
-        </Text>
-      </TouchableOpacity>
+          <Text
+            style={{
+              color: "white",
+              textAlign: "center",
+              fontSize: 12,
+              fontWeight: "900",
+            }}
+          >
+            Edit
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }

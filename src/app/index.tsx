@@ -4,9 +4,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 
+import { AppFooterDisclaimer } from "../components/AppFooterDisclaimer";
+import { AppHeaderCard } from "../components/AppHeaderCard";
 import { GuidanceCard } from "../components/GuidanceCard";
+import { HowToUseCard } from "../components/HowToUseCard";
 import { ParkingTypeSelector } from "../components/ParkingTypeSelector";
 import { RigSetupCard } from "../components/RigSetupCard";
+import { SafetyDisclaimerCard } from "../components/SafetyDisclaimerCard";
 import { SavedRigSetupCard } from "../components/SavedRigSetupCard";
 import {
   SiteObstacle,
@@ -21,37 +25,23 @@ type SavedRigSetup = {
   trailerLength: string;
 };
 
-function getObstacleWarning(obstacles: SiteObstacle[], stepIndex: number) {
+function getObstacleWarning(obstacles: SiteObstacle[]) {
   const warnings: string[] = [];
 
   if (obstacles.includes("poleRight")) {
-    if (stepIndex <= 1) {
-      warnings.push(
-        "🚧 Right-side pole: start wider and avoid cutting in too early.",
-      );
-    } else {
-      warnings.push(
-        "🚧 Right-side pole: watch trailer swing before straightening.",
-      );
-    }
+    warnings.push("🚧 Pole right: start wider");
   }
 
   if (obstacles.includes("treeLeft")) {
-    if (stepIndex <= 1) {
-      warnings.push("🌳 Tree on left: keep the trailer angle shallow.");
-    } else {
-      warnings.push("🌳 Tree on left: avoid drifting toward the driver side.");
-    }
+    warnings.push("🌳 Tree left: shallow angle");
   }
 
   if (obstacles.includes("lowBranch")) {
-    warnings.push("🌿 Low branch: check roof clearance before backing deeper.");
+    warnings.push("🌿 Low branch: check roof");
   }
 
   if (obstacles.includes("tightHookupSide")) {
-    warnings.push(
-      "⚡ Tight hookup side: leave extra room on the utility side.",
-    );
+    warnings.push("⚡ Hookup side: leave room");
   }
 
   return warnings;
@@ -60,8 +50,11 @@ function getObstacleWarning(obstacles: SiteObstacle[], stepIndex: number) {
 export default function Index() {
   const [truckLength, setTruckLength] = useState("20");
   const [trailerLength, setTrailerLength] = useState("30");
-  const [isEditingRigSetup, setIsEditingRigSetup] = useState(false);
 
+  const [draftTruckLength, setDraftTruckLength] = useState("20");
+  const [draftTrailerLength, setDraftTrailerLength] = useState("30");
+
+  const [isEditingRigSetup, setIsEditingRigSetup] = useState(false);
   const [parkingType, setParkingType] = useState<ParkingType>("back-in");
   const [stepIndex, setStepIndex] = useState(0);
 
@@ -73,9 +66,15 @@ export default function Index() {
   const [obstacles, setObstacles] = useState<SiteObstacle[]>([]);
 
   const totalLength = (Number(truckLength) || 0) + (Number(trailerLength) || 0);
-  const steps = guidanceByType[parkingType];
-  const currentStep = steps[stepIndex];
-  const obstacleWarnings = getObstacleWarning(obstacles, stepIndex);
+  const draftTotalLength =
+    (Number(draftTruckLength) || 0) + (Number(draftTrailerLength) || 0);
+  const headerTotalLength = isEditingRigSetup ? draftTotalLength : totalLength;
+
+  const steps = guidanceByType[parkingType] ?? guidanceByType["back-in"];
+  const safeStepIndex = Math.min(stepIndex, steps.length - 1);
+  const currentStep = steps[safeStepIndex];
+
+  const obstacleWarnings = getObstacleWarning(obstacles);
 
   useEffect(() => {
     let mounted = true;
@@ -90,10 +89,12 @@ export default function Index() {
 
         if (typeof parsed.truckLength === "string") {
           setTruckLength(parsed.truckLength);
+          setDraftTruckLength(parsed.truckLength);
         }
 
         if (typeof parsed.trailerLength === "string") {
           setTrailerLength(parsed.trailerLength);
+          setDraftTrailerLength(parsed.trailerLength);
         }
       } catch (error) {
         console.warn("Failed to load rig setup", error);
@@ -107,27 +108,50 @@ export default function Index() {
     };
   }, []);
 
-  useEffect(() => {
-    async function saveRigSetup() {
-      try {
-        await AsyncStorage.setItem(
-          RIG_SETUP_STORAGE_KEY,
-          JSON.stringify({
-            truckLength,
-            trailerLength,
-          }),
-        );
-      } catch (error) {
-        console.warn("Failed to save rig setup", error);
-      }
-    }
-
-    saveRigSetup();
-  }, [truckLength, trailerLength]);
-
   function selectParkingType(type: ParkingType) {
     setParkingType(type);
     setStepIndex(0);
+  }
+
+  function startEditingRigSetup() {
+    setDraftTruckLength(truckLength);
+    setDraftTrailerLength(trailerLength);
+    setIsEditingRigSetup(true);
+  }
+
+  async function saveRigSetupNow() {
+    const nextTruckLength = draftTruckLength.trim() || "0";
+    const nextTrailerLength = draftTrailerLength.trim() || "0";
+
+    try {
+      await AsyncStorage.setItem(
+        RIG_SETUP_STORAGE_KEY,
+        JSON.stringify({
+          truckLength: nextTruckLength,
+          trailerLength: nextTrailerLength,
+          updatedAt: new Date().toISOString(),
+        }),
+      );
+
+      setTruckLength(nextTruckLength);
+      setTrailerLength(nextTrailerLength);
+      setDraftTruckLength(nextTruckLength);
+      setDraftTrailerLength(nextTrailerLength);
+      setIsEditingRigSetup(false);
+
+      console.log("Saved rig setup:", {
+        truckLength: nextTruckLength,
+        trailerLength: nextTrailerLength,
+      });
+    } catch (error) {
+      console.warn("Failed to save rig setup", error);
+    }
+  }
+
+  function cancelRigSetupEdit() {
+    setDraftTruckLength(truckLength);
+    setDraftTrailerLength(trailerLength);
+    setIsEditingRigSetup(false);
   }
 
   function goBack() {
@@ -153,38 +177,24 @@ export default function Index() {
         paddingBottom: 80,
       }}
     >
-      <Text
-        style={{
-          fontSize: 28,
-          fontWeight: "bold",
-          color: "#0f172a",
-        }}
-      >
-        RV Parking Assistant
-      </Text>
+      <AppHeaderCard totalLength={headerTotalLength} />
 
-      <Text
-        style={{
-          marginTop: 6,
-          fontSize: 14,
-          fontWeight: "700",
-          color: "#475569",
-        }}
-      >
-        Total rig length: {totalLength} ft
-      </Text>
+      <HowToUseCard />
+
+      <SafetyDisclaimerCard />
 
       {isEditingRigSetup ? (
         <>
           <RigSetupCard
-            truckLength={truckLength}
-            setTruckLength={setTruckLength}
-            trailerLength={trailerLength}
-            setTrailerLength={setTrailerLength}
+            truckLength={draftTruckLength}
+            setTruckLength={setDraftTruckLength}
+            trailerLength={draftTrailerLength}
+            setTrailerLength={setDraftTrailerLength}
+            totalLength={draftTotalLength}
           />
 
           <TouchableOpacity
-            onPress={() => setIsEditingRigSetup(false)}
+            onPress={saveRigSetupNow}
             style={{
               marginTop: 10,
               padding: 12,
@@ -200,7 +210,28 @@ export default function Index() {
                 fontWeight: "900",
               }}
             >
-              ✅ Done Editing Setup
+              ✅ Save Rig Setup
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={cancelRigSetupEdit}
+            style={{
+              marginTop: 8,
+              padding: 12,
+              borderRadius: 12,
+              backgroundColor: "#e2e8f0",
+            }}
+          >
+            <Text
+              style={{
+                color: "#0f172a",
+                textAlign: "center",
+                fontSize: 13,
+                fontWeight: "900",
+              }}
+            >
+              Cancel
             </Text>
           </TouchableOpacity>
         </>
@@ -208,9 +239,10 @@ export default function Index() {
         <SavedRigSetupCard
           truckLength={truckLength}
           trailerLength={trailerLength}
+          totalLength={totalLength}
           backingSide={backingSide}
           scenario={scenario}
-          onEditSetup={() => setIsEditingRigSetup(true)}
+          onEditSetup={startEditingRigSetup}
         />
       )}
 
@@ -234,24 +266,33 @@ export default function Index() {
         >
           <Text
             style={{
-              fontWeight: "700",
+              fontSize: 12,
+              fontWeight: "900",
+              color: "#92400e",
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
               marginBottom: 6,
             }}
           >
             Obstacle Coaching
           </Text>
 
-          {obstacleWarnings.map((warning) => (
-            <Text key={warning} style={{ marginBottom: 4 }}>
-              {warning}
-            </Text>
-          ))}
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: "800",
+              color: "#92400e",
+              lineHeight: 18,
+            }}
+          >
+            {obstacleWarnings.join(" • ")}
+          </Text>
         </View>
       ) : null}
 
       <GuidanceCard
         currentStep={currentStep}
-        stepIndex={stepIndex}
+        stepIndex={safeStepIndex}
         totalSteps={steps.length}
         backingSide={backingSide}
         setBackingSide={setBackingSide}
@@ -262,6 +303,8 @@ export default function Index() {
         setScenario={setScenario}
         obstacles={obstacles}
       />
+
+      <AppFooterDisclaimer />
     </ScrollView>
   );
 }

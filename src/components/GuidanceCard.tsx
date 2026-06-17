@@ -6,22 +6,15 @@ import { useEffect, useRef, useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { GuidanceStep } from "../constants/parkingGuidance";
 import { AutoCoachingBanner } from "./AutoCoachingBanner";
-import { AutoStepSuggestionCard } from "./AutoStepSuggestionCard";
-import { CollisionRiskCard } from "./CollisionRiskCard";
-import { HitchAngleIndicator } from "./HitchAngleIndicator";
-import { ObstacleDistanceCard } from "./ObstacleDistanceCard";
+import { CompactLiveCoachCard } from "./CompactLiveCoachCard";
+import { CompactRigStatusRow } from "./CompactRigStatusRow";
 import { ParkingDiagram } from "./ParkingDiagram";
-import { PracticeHistoryCard, PracticeSession } from "./PracticeHistoryCard";
-import { PracticeAction, PracticeModeControls } from "./PracticeModeControls";
-import { PracticeTipsCard } from "./PracticeTipsCard";
-import { ProgressTrendCard } from "./ProgressTrendCard";
-import { SessionStats, SessionStatsCard } from "./SessionStatsCard";
-import { SessionSummaryCard } from "./SessionSummaryCard";
+import { PracticeSession } from "./PracticeHistoryCard";
+import { PracticeAction } from "./PracticeModeControls";
+import { SessionStats } from "./SessionStatsCard";
 import { SimulatorStatusCard } from "./SimulatorStatusCard";
 import { SiteObstacle } from "./SiteObstacleSelector";
-import { SteeringAmountIndicator } from "./SteeringAmountIndicator";
 import { SteeringWheel } from "./SteeringWheel";
-import { TrainingScoreCard } from "./TrainingScoreCard";
 
 const PRACTICE_HISTORY_STORAGE_KEY = "rvParkingPracticeHistory";
 const RIG_SETTINGS_STORAGE_KEY = "rvParkingRigSettings";
@@ -66,6 +59,7 @@ export function GuidanceCard({
   const [simulatedTrailerAngle, setSimulatedTrailerAngle] = useState(0);
   const [isRecoveringFromJackknife, setIsRecoveringFromJackknife] =
     useState(false);
+  //const [practiceFinished, setPracticeFinished] = useState(false);
 
   const [hasStartedPractice, setHasStartedPractice] = useState(false);
   const [practiceSessions, setPracticeSessions] = useState<PracticeSession[]>(
@@ -87,7 +81,7 @@ export function GuidanceCard({
   const hasSpokenResumeBackingRef = useRef(false);
   const hasCountedRecoveryCompleteRef = useRef(false);
   const hasCountedAutoStopRef = useRef(false);
-
+  //const [showControlPad, setShowControlPad] = useState(false);
   const [lastVoiceMessage, setLastVoiceMessage] = useState<string | null>(null);
   const [movementTrail, setMovementTrail] = useState<
     { x: number; y: number; angle: number }[]
@@ -95,7 +89,7 @@ export function GuidanceCard({
 
   const sideMultiplier = backingSide === "left" ? 1 : -1;
 
-  const steeringGuidance =
+  const fallbackSteeringGuidance =
     stepIndex === 0
       ? "↑ KEEP STRAIGHT"
       : stepIndex === 1
@@ -110,12 +104,63 @@ export function GuidanceCard({
             ? "↑ STRAIGHTEN WHEEL"
             : "🛑 STOP";
 
-  const steeringAngle =
-    stepIndex === 1
-      ? -35 * sideMultiplier
-      : stepIndex === 2
-        ? 35 * sideMultiplier
-        : 0;
+  const voicePrompt =
+    currentStep.voicePrompt ??
+    `${fallbackSteeringGuidance}. ${currentStep.title}`;
+
+  function getDriverSteeringGuidance() {
+    const guidanceText =
+      `${voicePrompt} ${currentStep.title} ${currentStep.instruction}`.toLowerCase();
+
+    if (stepIndex === totalSteps - 1 || guidanceText.includes("stop")) {
+      return "🛑 STOP";
+    }
+
+    if (
+      guidanceText.includes("turn left") ||
+      guidanceText.includes("steer left")
+    ) {
+      return "↶ TURN LEFT";
+    }
+
+    if (
+      guidanceText.includes("turn right") ||
+      guidanceText.includes("steer right")
+    ) {
+      return "↷ TURN RIGHT";
+    }
+
+    if (guidanceText.includes("straighten")) {
+      return "↑ STRAIGHTEN WHEEL";
+    }
+
+    if (
+      guidanceText.includes("keep straight") ||
+      guidanceText.includes("stay straight")
+    ) {
+      return "↑ KEEP STRAIGHT";
+    }
+
+    return fallbackSteeringGuidance;
+  }
+
+  const steeringGuidance = getDriverSteeringGuidance();
+
+  function getDisplaySteeringAngle() {
+    if (steeringGuidance.includes("LEFT")) {
+      return -28;
+    }
+
+    if (steeringGuidance.includes("RIGHT")) {
+      return 28;
+    }
+
+    return 0;
+  }
+
+  const displaySteeringAngle = getDisplaySteeringAngle();
+
+  const steeringAngle = displaySteeringAngle;
 
   const trailerAngle =
     stepIndex === 1
@@ -135,21 +180,31 @@ export function GuidanceCard({
           ? 4 * sideMultiplier
           : 0;
 
-  const steeringLabel =
-    stepIndex === 1
-      ? backingSide === "left"
-        ? "Turn Left"
-        : "Turn Right"
-      : stepIndex === 2
-        ? backingSide === "left"
-          ? "Turn Right"
-          : "Turn Left"
-        : stepIndex === 3
-          ? "Straighten"
-          : stepIndex >= 4
-            ? "Stop"
-            : "Straight";
+  function getSteeringWheelLabel() {
+    if (steeringGuidance.includes("LEFT")) {
+      return "Turn Left";
+    }
 
+    if (steeringGuidance.includes("RIGHT")) {
+      return "Turn Right";
+    }
+
+    if (steeringGuidance.includes("STRAIGHTEN")) {
+      return "Straighten Wheel";
+    }
+
+    if (steeringGuidance.includes("STRAIGHT")) {
+      return "Keep Straight";
+    }
+
+    if (steeringGuidance.includes("STOP")) {
+      return "Stop";
+    }
+
+    return steeringGuidance;
+  }
+
+  const steeringLabel = getSteeringWheelLabel();
   const trainingFeedback =
     stepIndex === 0
       ? "GOOD SETUP"
@@ -169,8 +224,6 @@ export function GuidanceCard({
         : "#16a34a";
 
   const bannerColor = steeringGuidance === "🛑 STOP" ? "#dc2626" : "#0891b2";
-  const voicePrompt =
-    currentStep.voicePrompt ?? `${steeringGuidance}. ${currentStep.title}`;
 
   function clamp(value: number, min: number, max: number) {
     return Math.max(min, Math.min(max, value));
@@ -425,6 +478,11 @@ export function GuidanceCard({
       hasCountedRecoveryCompleteRef.current = false;
     }
   }, [recoveryComplete, isRecoveringFromJackknife]);
+
+  // useEffect(() => {
+  //   setShowControlPad(false);
+  //   setPracticeFinished(false);
+  // }, [stepIndex]);
 
   useEffect(() => {
     let mounted = true;
@@ -743,23 +801,51 @@ export function GuidanceCard({
           <Text style={{ textAlign: "center", fontWeight: "bold" }}>Back</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={goNext}
-          disabled={stepIndex === totalSteps - 1}
-          style={{
-            flex: 1,
-            padding: 14,
-            borderRadius: 10,
-            backgroundColor:
-              stepIndex === totalSteps - 1 ? "#94a3b8" : "#0891b2",
-          }}
-        >
-          <Text
-            style={{ textAlign: "center", fontWeight: "bold", color: "white" }}
+        {stepIndex === totalSteps - 1 ? (
+          <TouchableOpacity
+            onPress={() => {
+              restartPractice();
+              resetSimulation();
+              //setShowControlPad(false);
+            }}
+            style={{
+              flex: 1,
+              padding: 14,
+              borderRadius: 10,
+              backgroundColor: "#16a34a",
+            }}
           >
-            {stepIndex === totalSteps - 1 ? "Done" : "Next"}
-          </Text>
-        </TouchableOpacity>
+            <Text
+              style={{
+                textAlign: "center",
+                fontWeight: "bold",
+                color: "white",
+              }}
+            >
+              🔄 Restart
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            onPress={goNext}
+            style={{
+              flex: 1,
+              padding: 14,
+              borderRadius: 10,
+              backgroundColor: "#0891b2",
+            }}
+          >
+            <Text
+              style={{
+                textAlign: "center",
+                fontWeight: "bold",
+                color: "white",
+              }}
+            >
+              Next
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
       <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
         {(["left", "right"] as const).map((side) => {
@@ -868,80 +954,15 @@ export function GuidanceCard({
             : "Normal practice site"}
       </Text>
       <SteeringWheel
-        steeringAngle={simulatedSteeringAngle}
+        steeringAngle={displaySteeringAngle}
         label={steeringLabel}
       />
-      <SteeringAmountIndicator steeringAngle={simulatedSteeringAngle} />
-      <HitchAngleIndicator
+      <CompactRigStatusRow
+        steeringAngle={displaySteeringAngle}
         truckAngle={simulatedTruckAngle}
         trailerAngle={simulatedTrailerAngle}
         scenario={scenario}
       />
-      {stepIndex === totalSteps - 1 ? (
-        <>
-          <TrainingScoreCard
-            stepIndex={stepIndex}
-            totalSteps={totalSteps}
-            steeringAngle={simulatedSteeringAngle}
-            truckAngle={simulatedTruckAngle}
-            trailerAngle={simulatedTrailerAngle}
-            scenario={scenario}
-            sessionStats={sessionStats}
-          />
-
-          <SessionSummaryCard
-            scenario={scenario}
-            backingSide={backingSide}
-            sessionStats={sessionStats}
-            score={calculateTrainingScore()}
-          />
-
-          <TouchableOpacity
-            onPress={startNewSession}
-            style={{
-              marginTop: 12,
-              padding: 14,
-              borderRadius: 12,
-              backgroundColor: "#0f172a",
-            }}
-          >
-            <Text
-              style={{
-                color: "white",
-                textAlign: "center",
-                fontWeight: "900",
-                fontSize: 16,
-              }}
-            >
-              🆕 Start New Session
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => {
-              hasSavedCurrentSessionRef.current = false;
-              restartPractice();
-            }}
-            style={{
-              marginTop: 12,
-              padding: 14,
-              borderRadius: 12,
-              backgroundColor: "#16a34a",
-            }}
-          >
-            <Text
-              style={{
-                color: "white",
-                textAlign: "center",
-                fontWeight: "900",
-                fontSize: 16,
-              }}
-            >
-              🔄 Restart Practice
-            </Text>
-          </TouchableOpacity>
-        </>
-      ) : null}
       <View
         style={{
           marginTop: 12,
@@ -1043,7 +1064,7 @@ export function GuidanceCard({
           </Text>
         </View>
       ) : null}
-      <ParkingDiagram
+      {/* <ParkingDiagram
         stepIndex={stepIndex}
         backingSide={backingSide}
         obstacles={obstacles}
@@ -1052,6 +1073,15 @@ export function GuidanceCard({
         simulatedSteeringAngle={simulatedSteeringAngle}
         practiceAction={practiceAction}
         movementTrail={movementTrail}
+      /> */}
+
+      <ParkingDiagram
+        stepIndex={stepIndex}
+        backingSide={backingSide}
+        simulatedTruckAngle={simulatedTruckAngle}
+        simulatedTrailerAngle={simulatedTrailerAngle}
+        movementTrail={movementTrail}
+        obstacles={obstacles}
       />
       {jackknifeAutoStopActive ? (
         <View
@@ -1127,7 +1157,6 @@ export function GuidanceCard({
           </Text>
         </View>
       ) : null}
-
       {showResumeBackingCoaching ? (
         <View
           style={{
@@ -1247,17 +1276,94 @@ export function GuidanceCard({
           </TouchableOpacity>
         </View>
       ) : null}
-
-      <PracticeModeControls
-        practiceAction={practiceAction}
-        onPracticeAction={handlePracticeAction}
-        onResetSimulation={resetSimulation}
+      <AutoCoachingBanner
+        stepIndex={stepIndex}
         backingSide={backingSide}
-        jackknifeAutoStopActive={jackknifeAutoStopActive}
-        isRecoveringFromJackknife={isRecoveringFromJackknife}
+        scenario={scenario}
+        obstacles={obstacles}
+        trailerAngle={simulatedTrailerAngle}
+        steeringAngle={displaySteeringAngle}
+        practiceAction={practiceAction}
       />
 
-      <TouchableOpacity
+      {/* 
+
+      {showControlPad ? (
+        <View
+          style={{
+            marginTop: 12,
+            padding: 12,
+            borderRadius: 16,
+            backgroundColor: "#f8fafc",
+            borderWidth: 1,
+            borderColor: "#cbd5e1",
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 12,
+              fontWeight: "900",
+              color: "#334155",
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+            }}
+          >
+            Practice Control Pad
+          </Text>
+
+          <Text
+            style={{
+              marginTop: 6,
+              fontSize: 14,
+              fontWeight: "800",
+              color: "#0f172a",
+              lineHeight: 19,
+            }}
+          >
+            Use these controls to practice this step. Then return to the
+            simulator to review the rig position.
+          </Text>
+
+          <StepCompletionHintCard
+            stepIndex={stepIndex}
+            totalSteps={totalSteps}
+            jackknifeAutoStopActive={jackknifeAutoStopActive}
+            isRecoveringFromJackknife={isRecoveringFromJackknife}
+            recoveryComplete={recoveryComplete}
+            onNextStep={goNext}
+          /> */}
+
+      {/* <PracticeModeControls
+            practiceAction={practiceAction}
+            onPracticeAction={handlePracticeAction}
+            jackknifeAutoStopActive={jackknifeAutoStopActive}
+            onResetSimulation={resetSimulation}
+            backingSide={backingSide}
+          /> */}
+      {/* <TouchableOpacity
+            onPress={() => setShowControlPad(false)}
+            style={{
+              marginTop: 12,
+              padding: 12,
+              borderRadius: 12,
+              backgroundColor: "#0f172a",
+            }}
+          >
+            <Text
+              style={{
+                color: "white",
+                textAlign: "center",
+                fontSize: 14,
+                fontWeight: "900",
+              }}
+            >
+              ← Back to Simulator View
+            </Text>
+          </TouchableOpacity> */}
+      {/* </View>
+      ) : null} */}
+
+      {/* <TouchableOpacity
         onPress={startNewSession}
         style={{
           marginTop: 10,
@@ -1278,38 +1384,31 @@ export function GuidanceCard({
         >
           🆕 Start New Session
         </Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
       {hasStartedPractice ||
       jackknifeAutoStopActive ||
       isRecoveringFromJackknife ? (
-        <AutoStepSuggestionCard
-          practiceAction={practiceAction}
-          simulatedSteeringAngle={simulatedSteeringAngle}
-          simulatedTruckAngle={simulatedTruckAngle}
-          simulatedTrailerAngle={simulatedTrailerAngle}
-          scenario={scenario}
+        <CompactLiveCoachCard
           stepIndex={stepIndex}
           backingSide={backingSide}
+          scenario={scenario}
+          obstacles={obstacles}
+          trailerAngle={simulatedTrailerAngle}
+          steeringAngle={displaySteeringAngle}
+          practiceAction={practiceAction}
           jackknifeAutoStopActive={jackknifeAutoStopActive}
           isRecoveringFromJackknife={isRecoveringFromJackknife}
         />
       ) : null}
       <SimulatorStatusCard
         practiceAction={practiceAction}
-        simulatedSteeringAngle={simulatedSteeringAngle}
+        simulatedSteeringAngle={displaySteeringAngle}
         simulatedTruckAngle={simulatedTruckAngle}
         simulatedTrailerAngle={simulatedTrailerAngle}
         scenario={scenario}
       />
-      <SessionStatsCard stats={sessionStats} />
 
-      <PracticeHistoryCard sessions={practiceSessions} />
-
-      <ProgressTrendCard sessions={practiceSessions} />
-
-      <PracticeTipsCard sessions={practiceSessions} />
-
-      {practiceSessions.length > 0 ? (
+      {/* {practiceSessions.length > 0 ? (
         <TouchableOpacity
           onPress={clearPracticeHistory}
           style={{
@@ -1332,30 +1431,20 @@ export function GuidanceCard({
             Clear Practice History
           </Text>
         </TouchableOpacity>
-      ) : null}
-      <ObstacleDistanceCard
+      ) : null} */}
+      {/* <PracticeResultsSection
         stepIndex={stepIndex}
-        backingSide={backingSide}
-        scenario={scenario}
-        obstacles={obstacles}
-        trailerAngle={simulatedTrailerAngle}
-      />
-      <AutoCoachingBanner
-        stepIndex={stepIndex}
-        backingSide={backingSide}
-        scenario={scenario}
-        obstacles={obstacles}
-        trailerAngle={simulatedTrailerAngle}
+        totalSteps={totalSteps}
         steeringAngle={simulatedSteeringAngle}
-        practiceAction={practiceAction}
-      />
-      <CollisionRiskCard
-        stepIndex={stepIndex}
-        backingSide={backingSide}
-        scenario={scenario}
-        obstacles={obstacles}
+        truckAngle={simulatedTruckAngle}
         trailerAngle={simulatedTrailerAngle}
-      />
+        scenario={scenario}
+        backingSide={backingSide}
+        sessionStats={sessionStats}
+        practiceSessions={practiceSessions}
+        restartPractice={restartPractice}
+        clearPracticeHistory={clearPracticeHistory}
+      /> */}
     </View>
   );
 }

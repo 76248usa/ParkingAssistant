@@ -1,5 +1,7 @@
 import React from "react";
 import { Text, View } from "react-native";
+import { ParkingType } from "../constants/parkingGuidance";
+import { CampsiteType } from "./CampsiteSetupCard";
 import { SiteObstacle } from "./SiteObstacleSelector";
 
 type TrailPoint = {
@@ -10,14 +12,16 @@ type TrailPoint = {
 type Props = {
   stepIndex: number;
   backingSide: "left" | "right";
+  campsiteType: CampsiteType;
   simulatedTruckAngle: number;
   simulatedTrailerAngle: number;
   movementTrail?: TrailPoint[];
   obstacles?: SiteObstacle[];
+  parkingType: ParkingType;
 };
 
 const CANVAS_WIDTH = 420;
-const CANVAS_HEIGHT = 210;
+const CANVAS_HEIGHT = 220;
 
 const TRAILER_WIDTH = 88;
 const TRAILER_HEIGHT = 30;
@@ -35,6 +39,14 @@ type Pose = {
   truckLeft: number;
   truckTop: number;
   truckRotation: number;
+};
+
+type ParkingSpace = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  rotation: number;
 };
 
 const RIGHT_SIDE_POSES: Pose[] = [
@@ -89,31 +101,215 @@ function mirrorX(left: number, width: number) {
   return CANVAS_WIDTH - left - width;
 }
 
-function getPose(stepIndex: number, backingSide: "left" | "right"): Pose {
-  const index = Math.max(0, Math.min(stepIndex, RIGHT_SIDE_POSES.length - 1));
-  const pose = RIGHT_SIDE_POSES[index];
+function getPose(
+  stepIndex: number,
+  backingSide: "left" | "right",
+  campsiteType: CampsiteType,
+) {
+  const parkingSpace = getParkingSpace(backingSide, campsiteType);
 
-  if (backingSide === "right") {
-    return pose;
+  const trailerWidth = 76;
+  const trailerHeight = 36;
+  const truckWidth = 58;
+  const truckHeight = 30;
+
+  const direction = backingSide === "right" ? 1 : -1;
+
+  const finalRotation = backingSide === "right" ? 90 : -90;
+
+  function fromCenters(
+    trailerCenterX: number,
+    trailerCenterY: number,
+    truckCenterX: number,
+    truckCenterY: number,
+    trailerRotation: number,
+    truckRotation: number,
+  ) {
+    return {
+      trailerLeft: trailerCenterX - trailerWidth / 2,
+      trailerTop: trailerCenterY - trailerHeight / 2,
+      trailerRotation,
+      truckLeft: truckCenterX - truckWidth / 2,
+      truckTop: truckCenterY - truckHeight / 2,
+      truckRotation,
+    };
   }
 
-  return {
-    trailerLeft: mirrorX(pose.trailerLeft, TRAILER_WIDTH),
-    trailerTop: pose.trailerTop,
-    trailerRotation: -pose.trailerRotation,
-    truckLeft: mirrorX(pose.truckLeft, TRUCK_WIDTH),
-    truckTop: pose.truckTop,
-    truckRotation: -pose.truckRotation,
-  };
-}
+  function getTruckCenterFromTrailer(
+    trailerCenterX: number,
+    trailerCenterY: number,
+    progressIntoSite: number,
+  ) {
+    /*
+      progressIntoSite:
+      0 = truck is forward on the road beside/ahead of trailer
+      1 = truck is in front of trailer near the campsite entrance/road
 
-function getParkingSpace(backingSide: "left" | "right") {
-  const rightSideSpace = {
-    left: 270,
-    top: 52,
+      This keeps the truck in front of the trailer instead of over/behind it.
+    */
+    const horizontalGap = direction * (112 * (1 - progressIntoSite));
+    const verticalGap = 92 * progressIntoSite;
+
+    return {
+      truckCenterX: trailerCenterX + horizontalGap,
+      truckCenterY: trailerCenterY + verticalGap,
+    };
+  }
+
+  const siteCenterX = parkingSpace.left + parkingSpace.width / 2;
+  const siteCenterY = parkingSpace.top + parkingSpace.height / 2;
+
+  const roadCenterY = 162;
+
+  /*
+    Correct back-in sequence:
+
+    Step 0 = Pull forward past the site
+    Step 1 = Trailer axle just past entrance; start backing turn
+    Step 2 = Trailer begins turning toward campsite
+    Step 3 = Trailer entering site; truck follows from road
+    Step 4+ = Trailer centered perpendicular in site
+  */
+
+  if (stepIndex === 0) {
+    // Pull forward past the site. Rig is straight on the road.
+    const trailerCenterX = siteCenterX - direction * 34;
+    const trailerCenterY = roadCenterY;
+
+    const truckCenterX = trailerCenterX + direction * 112;
+    const truckCenterY = roadCenterY;
+
+    return fromCenters(
+      trailerCenterX,
+      trailerCenterY,
+      truckCenterX,
+      truckCenterY,
+      0,
+      0,
+    );
+  }
+
+  if (stepIndex === 1) {
+    // Trailer axle is now just past the campsite entrance.
+    // Backing starts. Trailer begins turning toward the campsite.
+    const trailerCenterX = siteCenterX + direction * 8;
+    const trailerCenterY = roadCenterY - 2;
+
+    const { truckCenterX, truckCenterY } = getTruckCenterFromTrailer(
+      trailerCenterX,
+      trailerCenterY,
+      0.12,
+    );
+
+    return fromCenters(
+      trailerCenterX,
+      trailerCenterY,
+      truckCenterX,
+      truckCenterY,
+      finalRotation * 0.14,
+      finalRotation * 0.22,
+    );
+  }
+
+  if (stepIndex === 2) {
+    // Trailer is turning toward the campsite entrance.
+    // Truck remains in front, still mostly on the road.
+    const trailerCenterX = siteCenterX + direction * 18;
+    const trailerCenterY = siteCenterY + 86;
+
+    const { truckCenterX, truckCenterY } = getTruckCenterFromTrailer(
+      trailerCenterX,
+      trailerCenterY,
+      0.42,
+    );
+
+    return fromCenters(
+      trailerCenterX,
+      trailerCenterY,
+      truckCenterX,
+      truckCenterY,
+      finalRotation * 0.42,
+      finalRotation * 0.32,
+    );
+  }
+
+  if (stepIndex === 3) {
+    // Trailer is entering the site. Start following and straightening.
+    // Truck stays in front of trailer near the road.
+    const trailerCenterX = siteCenterX + direction * 8;
+    const trailerCenterY = siteCenterY + 44;
+
+    const { truckCenterX, truckCenterY } = getTruckCenterFromTrailer(
+      trailerCenterX,
+      trailerCenterY,
+      0.72,
+    );
+
+    return fromCenters(
+      trailerCenterX,
+      trailerCenterY,
+      truckCenterX,
+      truckCenterY,
+      finalRotation * 0.72,
+      finalRotation * 0.55,
+    );
+  }
+
+  // Final parked position:
+  // Trailer is perpendicular to the road and centered in the campsite.
+  const finalTrailerCenterX = siteCenterX;
+  const finalTrailerCenterY = siteCenterY;
+
+  const finalTruckCenterX = siteCenterX;
+  const finalTruckCenterY = siteCenterY + 92;
+
+  return fromCenters(
+    finalTrailerCenterX,
+    finalTrailerCenterY,
+    finalTruckCenterX,
+    finalTruckCenterY,
+    finalRotation,
+    finalRotation,
+  );
+}
+function getParkingSpace(
+  backingSide: "left" | "right",
+  campsiteType: CampsiteType,
+) {
+  const baseSpace = {
+    left: 210,
+    top: 30,
     width: PARKING_SPACE_WIDTH,
     height: PARKING_SPACE_HEIGHT,
+    rotation: 0,
   };
+
+  const rightSideSpace =
+    campsiteType === "angledSite"
+      ? {
+          left: 236,
+          top: 28,
+          width: 122,
+          height: 82,
+          rotation: -10,
+        }
+      : campsiteType === "tightCampgroundRoad"
+        ? {
+            left: 232,
+            top: 30,
+            width: 100,
+            height: 82,
+            rotation: 0,
+          }
+        : campsiteType === "narrowDriveway"
+          ? {
+              left: 248,
+              top: 18,
+              width: 66,
+              height: 106,
+              rotation: 0,
+            }
+          : baseSpace;
 
   if (backingSide === "right") {
     return rightSideSpace;
@@ -124,9 +320,9 @@ function getParkingSpace(backingSide: "left" | "right") {
     top: rightSideSpace.top,
     width: rightSideSpace.width,
     height: rightSideSpace.height,
+    rotation: -rightSideSpace.rotation,
   };
 }
-
 function getGuideDots(backingSide: "left" | "right") {
   const rightDots = [
     { x: 166, y: 142 },
@@ -149,7 +345,7 @@ function getGuideDots(backingSide: "left" | "right") {
 
 function getObstacleElements(
   obstacles: SiteObstacle[],
-  parkingSpace: { left: number; top: number; width: number; height: number },
+  parkingSpace: ParkingSpace,
 ) {
   const items: {
     key: SiteObstacle;
@@ -210,16 +406,256 @@ function getStepLabel(stepIndex: number) {
   return "Centered in parking space";
 }
 
+function getCampsiteDiagramLabel(campsiteType: CampsiteType) {
+  if (campsiteType === "straightBackIn") return "Straight back-in";
+  if (campsiteType === "angledSite") return "Angled campsite";
+  if (campsiteType === "tightCampgroundRoad") return "Tight road";
+  return "Narrow driveway";
+}
+
+function getTargetLabel(campsiteType: CampsiteType) {
+  if (campsiteType === "narrowDriveway") return "DRIVEWAY";
+  return "TARGET";
+}
+
+function getRoadStyle(campsiteType: CampsiteType) {
+  if (campsiteType === "tightCampgroundRoad") {
+    return {
+      top: 134,
+      height: 44,
+      label: "Tight road / limited swing room",
+    };
+  }
+
+  if (campsiteType === "narrowDriveway") {
+    return {
+      top: 132,
+      height: 46,
+      label: "Narrow driveway approach",
+    };
+  }
+
+  return {
+    top: 124,
+    height: 58,
+    label: "Road / driving lane",
+  };
+}
 export function ParkingDiagram({
   stepIndex,
   backingSide,
+  campsiteType,
   simulatedTruckAngle,
   simulatedTrailerAngle,
   movementTrail = [],
   obstacles = [],
+  parkingType,
 }: Props) {
-  const pose = getPose(stepIndex, backingSide);
-  const parkingSpace = getParkingSpace(backingSide);
+  if (parkingType === "pull-through") {
+    return (
+      <View
+        style={{
+          marginTop: 12,
+          padding: 12,
+          borderRadius: 16,
+          backgroundColor: "#f8fafc",
+          borderWidth: 1,
+          borderColor: "#cbd5e1",
+        }}
+      >
+        <Text
+          style={{
+            fontSize: 12,
+            fontWeight: "900",
+            color: "#334155",
+            textTransform: "uppercase",
+            letterSpacing: 0.5,
+          }}
+        >
+          Pull-through path
+        </Text>
+
+        <View
+          style={{
+            marginTop: 10,
+            height: 190,
+            borderRadius: 14,
+            backgroundColor: "#dcfce7",
+            borderWidth: 1,
+            borderColor: "#86efac",
+            overflow: "hidden",
+          }}
+        >
+          {/* Pull-through lane */}
+          <View
+            style={{
+              position: "absolute",
+              left: 20,
+              right: 20,
+              top: 70,
+              height: 54,
+              borderRadius: 18,
+              backgroundColor: "#94a3b8",
+            }}
+          />
+
+          {/* Lane center line */}
+          <View
+            style={{
+              position: "absolute",
+              left: 28,
+              right: 28,
+              top: 96,
+              height: 2,
+              backgroundColor: "white",
+              opacity: 0.9,
+            }}
+          />
+
+          {/* Campsite / pull-through area */}
+          <View
+            style={{
+              position: "absolute",
+              left: 210,
+              top: 42,
+              width: 120,
+              height: 110,
+              borderRadius: 14,
+              backgroundColor: "#bbf7d0",
+              borderWidth: 2,
+              borderColor: "#16a34a",
+              borderStyle: "dashed",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 10,
+                fontWeight: "900",
+                color: "#166534",
+                textAlign: "center",
+              }}
+            >
+              PULL-THROUGH SITE
+            </Text>
+          </View>
+
+          {/* Direction arrow */}
+          <Text
+            style={{
+              position: "absolute",
+              left: 42,
+              top: 42,
+              fontSize: 13,
+              fontWeight: "900",
+              color: "#0f172a",
+            }}
+          >
+            Enter →
+          </Text>
+
+          <Text
+            style={{
+              position: "absolute",
+              right: 32,
+              top: 154,
+              fontSize: 13,
+              fontWeight: "900",
+              color: "#0f172a",
+            }}
+          >
+            Exit →
+          </Text>
+
+          {/* Trailer */}
+          <View
+            style={{
+              position: "absolute",
+              left: stepIndex >= 2 ? 198 : stepIndex === 1 ? 150 : 92,
+              top: 78,
+              width: 76,
+              height: 36,
+              borderRadius: 8,
+              backgroundColor: "#f8fafc",
+              borderWidth: 2,
+              borderColor: "#334155",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 10,
+                fontWeight: "900",
+                color: "#0f172a",
+              }}
+            >
+              Trailer
+            </Text>
+          </View>
+
+          {/* Truck */}
+          <View
+            style={{
+              position: "absolute",
+              left: stepIndex >= 2 ? 274 : stepIndex === 1 ? 226 : 168,
+              top: 81,
+              width: 58,
+              height: 30,
+              borderRadius: 8,
+              backgroundColor: "#1d4ed8",
+              borderWidth: 2,
+              borderColor: "#1e3a8a",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 9,
+                fontWeight: "900",
+                color: "white",
+              }}
+            >
+              Truck
+            </Text>
+          </View>
+
+          {/* Pull-through coaching label */}
+          <View
+            style={{
+              position: "absolute",
+              left: 16,
+              right: 16,
+              bottom: 10,
+              padding: 8,
+              borderRadius: 10,
+              backgroundColor: "rgba(255,255,255,0.9)",
+              borderWidth: 1,
+              borderColor: "#bbf7d0",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 11,
+                fontWeight: "800",
+                color: "#166534",
+                textAlign: "center",
+                lineHeight: 15,
+              }}
+            >
+              Pull forward slowly. Stay centered and watch both trailer sides.
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  const pose = getPose(stepIndex, backingSide, campsiteType);
+  const roadStyle = getRoadStyle(campsiteType);
+  const parkingSpace = getParkingSpace(backingSide, campsiteType);
   const guideDots = getGuideDots(backingSide);
   const obstacleItems = getObstacleElements(obstacles, parkingSpace);
 
@@ -236,8 +672,10 @@ export function ParkingDiagram({
       <View
         style={{
           width: "100%",
-          maxWidth: 420,
-          height: 210,
+          maxWidth: CANVAS_WIDTH,
+          //maxWidth: 460,
+          height: CANVAS_HEIGHT,
+          //height: 250,
           borderRadius: 16,
           borderWidth: 1,
           borderColor: "#cbd5e1",
@@ -251,27 +689,79 @@ export function ParkingDiagram({
           style={{
             position: "absolute",
             left: 0,
-            top: 108,
+            top: roadStyle.top,
             width: CANVAS_WIDTH,
-            height: 76,
-            backgroundColor: "#e5e7eb",
+            height: roadStyle.height,
+            backgroundColor:
+              campsiteType === "tightCampgroundRoad" ||
+              campsiteType === "narrowDriveway"
+                ? "#d1d5db"
+                : "#e5e7eb",
           }}
         />
+        {campsiteType === "tightCampgroundRoad" ? (
+          <>
+            <View
+              style={{
+                position: "absolute",
+                left: 0,
+                top: roadStyle.top - 2,
+                width: CANVAS_WIDTH,
+                height: 3,
+                backgroundColor: "#94a3b8",
+              }}
+            />
 
+            <View
+              style={{
+                position: "absolute",
+                left: 0,
+                top: roadStyle.top + roadStyle.height,
+                width: CANVAS_WIDTH,
+                height: 3,
+                backgroundColor: "#94a3b8",
+              }}
+            />
+
+            <Text
+              style={{
+                position: "absolute",
+                left: 12,
+                top: roadStyle.top + 6,
+                fontSize: 10,
+                fontWeight: "900",
+                color: "#475569",
+              }}
+            >
+              Limited swing room
+            </Text>
+          </>
+        ) : null}
         {/* Road lane line */}
         <View
           style={{
             position: "absolute",
             left: 0,
-            top: 145,
+            top: roadStyle.top + roadStyle.height / 2,
             width: CANVAS_WIDTH,
             height: 2,
             backgroundColor: "#ffffff",
             opacity: 0.9,
           }}
         />
-
-        {/* Parking space */}
+        {/* Road lane line */}
+        <View
+          style={{
+            position: "absolute",
+            left: 0,
+            top: roadStyle.top + roadStyle.height / 2,
+            width: CANVAS_WIDTH,
+            height: 2,
+            backgroundColor: "#ffffff",
+            opacity: 0.9,
+          }}
+        />
+        {/* Parking target */}
         <View
           style={{
             position: "absolute",
@@ -284,34 +774,24 @@ export function ParkingDiagram({
             borderStyle: "dashed",
             borderRadius: 10,
             backgroundColor: "#dcfce7",
+            justifyContent: "flex-start",
+            alignItems: "center",
+            transform: [{ rotate: `${parkingSpace.rotation}deg` }],
           }}
         >
           <Text
             style={{
-              marginTop: 8,
-              fontSize: 11,
+              marginTop: campsiteType === "narrowDriveway" ? 12 : 10,
+              fontSize: campsiteType === "narrowDriveway" ? 9 : 10,
               fontWeight: "900",
               textAlign: "center",
               color: "#166534",
             }}
           >
-            PARKING SPACE
-          </Text>
-
-          <Text
-            style={{
-              marginTop: 4,
-              fontSize: 10,
-              fontWeight: "700",
-              textAlign: "center",
-              color: "#15803d",
-            }}
-          >
-            Trailer should end here
+            {getTargetLabel(campsiteType)}
           </Text>
         </View>
-
-        {/* Parking space center guide */}
+        {/* Parking target center guide */}
         <View
           style={{
             position: "absolute",
@@ -320,9 +800,9 @@ export function ParkingDiagram({
             width: 2,
             height: parkingSpace.height - 28,
             backgroundColor: "#86efac",
+            transform: [{ rotate: `${parkingSpace.rotation}deg` }],
           }}
         />
-
         {/* Backing guide dots */}
         {guideDots.map((dot, index) => (
           <View
@@ -339,7 +819,6 @@ export function ParkingDiagram({
             }}
           />
         ))}
-
         {/* Movement trail */}
         {movementTrail.map((point, index) => (
           <View
@@ -356,7 +835,6 @@ export function ParkingDiagram({
             }}
           />
         ))}
-
         {/* Obstacles */}
         {obstacleItems.map((item) => (
           <View
@@ -381,7 +859,6 @@ export function ParkingDiagram({
             </Text>
           </View>
         ))}
-
         {/* Trailer */}
         <View
           style={{
@@ -408,6 +885,7 @@ export function ParkingDiagram({
           >
             TRAILER
           </Text>
+
           <View
             style={{
               position: "absolute",
@@ -432,42 +910,26 @@ export function ParkingDiagram({
             }}
           />
         </View>
-
         {/* Hitch connector */}
         <View
           style={{
             position: "absolute",
             left:
               backingSide === "right"
-                ? pose.truckLeft + TRUCK_WIDTH - 2
-                : pose.trailerLeft + TRAILER_WIDTH - 4,
-            top:
+                ? pose.trailerLeft + 76
+                : pose.truckLeft + 58,
+            top: pose.trailerTop + 18,
+            width:
               backingSide === "right"
-                ? (pose.truckTop + pose.trailerTop) / 2 + 11
-                : (pose.truckTop + pose.trailerTop) / 2 + 11,
-            width: Math.max(
-              18,
-              Math.abs(
-                backingSide === "right"
-                  ? pose.trailerLeft - (pose.truckLeft + TRUCK_WIDTH)
-                  : pose.truckLeft - (pose.trailerLeft + TRAILER_WIDTH),
-              ) + 8,
-            ),
-            height: 5,
+                ? Math.max(12, pose.truckLeft - (pose.trailerLeft + 76))
+                : Math.max(12, pose.trailerLeft - (pose.truckLeft + 58)),
+            height: 2,
+            backgroundColor: "#64748b",
+            opacity: 0.65,
             borderRadius: 999,
-            backgroundColor: "#475569",
-            transform: [
-              {
-                rotate: `${
-                  backingSide === "right"
-                    ? (pose.trailerTop - pose.truckTop) * 0.35
-                    : (pose.truckTop - pose.trailerTop) * 0.35
-                }deg`,
-              },
-            ],
+            transform: [{ rotate: `${trailerRotation * 0.25}deg` }],
           }}
         />
-
         {/* Truck */}
         <View
           style={{
@@ -494,6 +956,7 @@ export function ParkingDiagram({
           >
             TRUCK
           </Text>
+
           <View
             style={{
               position: "absolute",
@@ -518,8 +981,7 @@ export function ParkingDiagram({
             }}
           />
         </View>
-
-        {/* Labels */}
+        {/* Backing side label */}
         <View
           style={{
             position: "absolute",
@@ -545,7 +1007,31 @@ export function ParkingDiagram({
               : "Right-side backing"}
           </Text>
         </View>
-
+        {/* Campsite type label */}
+        <View
+          style={{
+            position: "absolute",
+            left: 10,
+            top: 42,
+            paddingVertical: 5,
+            paddingHorizontal: 9,
+            borderRadius: 999,
+            backgroundColor: "#fefce8",
+            borderWidth: 1,
+            borderColor: "#fde68a",
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 10,
+              fontWeight: "900",
+              color: "#854d0e",
+            }}
+          >
+            {getCampsiteDiagramLabel(campsiteType)}
+          </Text>
+        </View>
+        {/* Step label */}
         <View
           style={{
             position: "absolute",
@@ -569,7 +1055,6 @@ export function ParkingDiagram({
             {getStepLabel(stepIndex)}
           </Text>
         </View>
-
         <Text
           style={{
             position: "absolute",
@@ -580,7 +1065,7 @@ export function ParkingDiagram({
             color: "#64748b",
           }}
         >
-          Road / driving lane
+          {roadStyle.label}
         </Text>
       </View>
     </View>

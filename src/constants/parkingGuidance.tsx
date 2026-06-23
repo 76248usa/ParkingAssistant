@@ -16,36 +16,39 @@ export type GuidanceStep = {
 export const guidanceByType: Record<ParkingType, GuidanceStep[]> = {
   "back-in": [
     {
-      title: "Start wide and slow",
+      title: "Pull forward past the site",
       instruction:
-        "Pull slightly past the campsite opening so the trailer axle is near the front edge of the space.",
-      warning: "Use a spotter if the site is narrow or has trees/posts.",
-      voicePrompt: "Keep straight. Pull forward past the site.",
+        "Keep the truck and trailer straight. Pull forward until the trailer axle is just past the campsite entrance.",
+      voicePrompt:
+        "Keep straight. Pull forward past the site until the trailer axle is just past the campsite entrance.",
     },
     {
-      title: "Begin backing slowly",
+      title: "Turn wheel and back slowly",
       instruction:
-        "Start backing at idle speed. Watch the trailer angle, not just the truck angle.",
-      voicePrompt: "Turn left. Back slowly.",
+        "Turn the wheel toward the backing side and begin backing very slowly. Watch the trailer start to bend toward the campsite.",
+      voicePrompt:
+        "Turn the wheel toward the backing side and back slowly. Watch the trailer start to turn.",
     },
     {
-      title: "Follow the trailer",
+      title: "Trailer entering the site",
       instruction:
-        "Once the trailer starts entering the space, turn the wheel back to follow the trailer and avoid jackknifing.",
-      voicePrompt: "Follow the trailer.",
+        "Keep backing slowly until the rear of the trailer starts entering the campsite. Do not over-steer.",
+      voicePrompt:
+        "The trailer should now start entering the site. Keep backing slowly and avoid over-steering.",
     },
     {
-      title: "Straighten early",
+      title: "Follow and straighten",
       instruction:
-        "When the trailer is mostly aligned, straighten the truck sooner than you think.",
-      voicePrompt: "Straighten the wheel.",
+        "As the trailer enters the site, reduce steering and start straightening the truck so it follows the trailer.",
+      voicePrompt:
+        "Now reduce steering and follow the trailer. Start straightening the truck as the trailer enters the site.",
     },
     {
-      title: "Stop and check clearance",
+      title: "Center in the site",
       instruction:
-        "Stop before the final few feet. Check rear clearance, hookups, trees, slide-outs, and overhead branches.",
-      warning: "Final clearance check is required before continuing.",
-      voicePrompt: "Stop. Check clearance.",
+        "Straighten the wheel and back slowly until the trailer is centered in the campsite.",
+      voicePrompt:
+        "Straighten the wheel. Back slowly until the trailer is centered in the site.",
     },
   ],
   driveway: [

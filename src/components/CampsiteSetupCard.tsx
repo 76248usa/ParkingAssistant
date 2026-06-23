@@ -1,116 +1,82 @@
 import React, { useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 
-export type SiteObstacle =
-  | "treeLeft"
-  | "poleRight"
-  | "lowBranch"
-  | "tightHookupSide";
+export type CampsiteType =
+  | "straightBackIn"
+  | "angledSite"
+  | "tightCampgroundRoad"
+  | "narrowDriveway";
 
-type ObstacleOption = {
-  id: SiteObstacle;
+type CampsiteOption = {
+  id: CampsiteType;
   title: string;
   subtitle: string;
   emoji: string;
 };
 
 type Props = {
-  obstacles: SiteObstacle[];
-  setObstacles: (obstacles: SiteObstacle[]) => void;
+  campsiteType: CampsiteType;
+  setCampsiteType: (type: CampsiteType) => void;
 };
 
-const OBSTACLE_OPTIONS: ObstacleOption[] = [
+const CAMPSITE_OPTIONS: CampsiteOption[] = [
   {
-    id: "treeLeft",
-    title: "Tree left",
-    subtitle: "Watch left mirror",
-    emoji: "🌳",
+    id: "straightBackIn",
+    title: "Straight back-in",
+    subtitle: "Normal campsite setup",
+    emoji: "⬅️",
   },
   {
-    id: "poleRight",
-    title: "Pole right",
-    subtitle: "Watch right mirror",
+    id: "angledSite",
+    title: "Angled campsite",
+    subtitle: "Site entrance is angled",
+    emoji: "↩️",
+  },
+  {
+    id: "tightCampgroundRoad",
+    title: "Tight road",
+    subtitle: "Limited room to swing",
     emoji: "🚧",
   },
   {
-    id: "lowBranch",
-    title: "Low branch",
-    subtitle: "Check roof clearance",
-    emoji: "🌿",
-  },
-  {
-    id: "tightHookupSide",
-    title: "Hookup side",
-    subtitle: "Leave room for hookups",
-    emoji: "⚡",
+    id: "narrowDriveway",
+    title: "Narrow driveway",
+    subtitle: "Tight entrance or home driveway",
+    emoji: "🏠",
   },
 ];
 
-function getSelectedObstacleLabels(obstacles: SiteObstacle[]) {
-  if (obstacles.length === 0) {
-    return "No obstacles selected";
-  }
-
-  const labels: string[] = [];
-
-  if (obstacles.includes("treeLeft")) labels.push("Tree left");
-  if (obstacles.includes("poleRight")) labels.push("Pole right");
-  if (obstacles.includes("lowBranch")) labels.push("Low branch");
-  if (obstacles.includes("tightHookupSide")) labels.push("Hookup side");
-
-  return labels.join(" • ");
+function getSelectedOption(campsiteType: CampsiteType) {
+  return (
+    CAMPSITE_OPTIONS.find((option) => option.id === campsiteType) ??
+    CAMPSITE_OPTIONS[0]
+  );
 }
 
-function getObstacleCoaching(obstacles: SiteObstacle[]) {
-  if (obstacles.length === 0) {
-    return "No specific obstacles selected. Still check mirrors, roof clearance, rear clearance, and both sides before backing.";
+function getCampsiteCoaching(type: CampsiteType) {
+  if (type === "straightBackIn") {
+    return "Use a normal setup beside the site. Back slowly, let the trailer start turning, then follow it into the space.";
   }
 
-  const coaching: string[] = [];
-
-  if (obstacles.includes("poleRight")) {
-    coaching.push(
-      "Keep extra clearance on the right side and check the right mirror often.",
-    );
+  if (type === "angledSite") {
+    return "Let the trailer follow the angle of the campsite. Avoid turning too sharply at the beginning.";
   }
 
-  if (obstacles.includes("treeLeft")) {
-    coaching.push(
-      "Keep the trailer angle shallow and check the left mirror often.",
-    );
+  if (type === "tightCampgroundRoad") {
+    return "Use smaller steering corrections. Pull forward earlier if the trailer angle gets sharp or the truck runs out of room.";
   }
 
-  if (obstacles.includes("lowBranch")) {
-    coaching.push("Confirm roof and A/C clearance before backing farther.");
-  }
-
-  if (obstacles.includes("tightHookupSide")) {
-    coaching.push("Leave room for hookups, slides, and walking space.");
-  }
-
-  return coaching.join(" ");
+  return "Keep the rig as straight as possible before backing. Use very small corrections and stop often to check clearance.";
 }
 
-export function SiteObstacleSelector({ obstacles, setObstacles }: Props) {
+export function CampsiteSetupCard({ campsiteType, setCampsiteType }: Props) {
   const [expanded, setExpanded] = useState(false);
+  const selectedOption = getSelectedOption(campsiteType);
 
-  function toggleObstacle(obstacle: SiteObstacle) {
-    const alreadySelected = obstacles.includes(obstacle);
-
-    if (alreadySelected) {
-      setObstacles(obstacles.filter((item) => item !== obstacle));
-      return;
-    }
-
-    setObstacles([...obstacles, obstacle]);
+  function chooseCampsiteType(type: CampsiteType) {
+    setCampsiteType(type);
+    setExpanded(false);
   }
-
-  function clearObstacles() {
-    setObstacles([]);
-  }
-
-  const selectedLabels = getSelectedObstacleLabels(obstacles);
-  const obstacleCoaching = getObstacleCoaching(obstacles);
 
   return (
     <View
@@ -149,7 +115,7 @@ export function SiteObstacleSelector({ obstacles, setObstacles }: Props) {
                 letterSpacing: 0.5,
               }}
             >
-              Site Obstacles
+              Campsite Setup
             </Text>
 
             <Text
@@ -161,9 +127,7 @@ export function SiteObstacleSelector({ obstacles, setObstacles }: Props) {
                 lineHeight: 20,
               }}
             >
-              {obstacles.length === 0
-                ? "No obstacles selected"
-                : `${obstacles.length} selected`}
+              {selectedOption.emoji} {selectedOption.title}
             </Text>
 
             <Text
@@ -175,7 +139,7 @@ export function SiteObstacleSelector({ obstacles, setObstacles }: Props) {
                 lineHeight: 17,
               }}
             >
-              {selectedLabels}
+              {selectedOption.subtitle}
             </Text>
           </View>
 
@@ -218,8 +182,7 @@ export function SiteObstacleSelector({ obstacles, setObstacles }: Props) {
               lineHeight: 19,
             }}
           >
-            Select anything near the campsite that could affect your backing
-            path.
+            Choose the parking situation so RV Assist can give better guidance.
           </Text>
 
           <View
@@ -230,20 +193,20 @@ export function SiteObstacleSelector({ obstacles, setObstacles }: Props) {
               marginTop: 12,
             }}
           >
-            {OBSTACLE_OPTIONS.map((option) => {
-              const selected = obstacles.includes(option.id);
+            {CAMPSITE_OPTIONS.map((option) => {
+              const selected = campsiteType === option.id;
 
               return (
                 <TouchableOpacity
                   key={option.id}
-                  onPress={() => toggleObstacle(option.id)}
+                  onPress={() => chooseCampsiteType(option.id)}
                   style={{
                     width: "48%",
                     padding: 10,
                     borderRadius: 14,
-                    backgroundColor: selected ? "#92400e" : "white",
+                    backgroundColor: selected ? "#0f172a" : "white",
                     borderWidth: 1,
-                    borderColor: selected ? "#92400e" : "#cbd5e1",
+                    borderColor: selected ? "#0f172a" : "#cbd5e1",
                   }}
                 >
                   <Text
@@ -273,7 +236,7 @@ export function SiteObstacleSelector({ obstacles, setObstacles }: Props) {
                       textAlign: "center",
                       fontSize: 10,
                       fontWeight: "700",
-                      color: selected ? "#fde68a" : "#64748b",
+                      color: selected ? "#cbd5e1" : "#64748b",
                       lineHeight: 14,
                     }}
                   >
@@ -284,51 +247,26 @@ export function SiteObstacleSelector({ obstacles, setObstacles }: Props) {
             })}
           </View>
 
-          {obstacles.length > 0 ? (
-            <TouchableOpacity
-              onPress={clearObstacles}
-              style={{
-                marginTop: 10,
-                padding: 10,
-                borderRadius: 12,
-                backgroundColor: "#fee2e2",
-                borderWidth: 1,
-                borderColor: "#fecaca",
-              }}
-            >
-              <Text
-                style={{
-                  color: "#991b1b",
-                  textAlign: "center",
-                  fontSize: 12,
-                  fontWeight: "900",
-                }}
-              >
-                Clear selected obstacles
-              </Text>
-            </TouchableOpacity>
-          ) : null}
-
           <View
             style={{
               marginTop: 12,
               padding: 12,
               borderRadius: 14,
-              backgroundColor: "#fff7ed",
+              backgroundColor: "#eff6ff",
               borderWidth: 1,
-              borderColor: "#fed7aa",
+              borderColor: "#bfdbfe",
             }}
           >
             <Text
               style={{
                 fontSize: 12,
                 fontWeight: "900",
-                color: "#c2410c",
+                color: "#1d4ed8",
                 textTransform: "uppercase",
                 letterSpacing: 0.4,
               }}
             >
-              Obstacle Coaching
+              Setup Coaching
             </Text>
 
             <Text
@@ -340,7 +278,7 @@ export function SiteObstacleSelector({ obstacles, setObstacles }: Props) {
                 lineHeight: 18,
               }}
             >
-              {obstacleCoaching}
+              {getCampsiteCoaching(campsiteType)}
             </Text>
           </View>
         </View>

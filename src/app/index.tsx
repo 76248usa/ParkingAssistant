@@ -6,18 +6,23 @@ import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 
 import { AppFooterDisclaimer } from "../components/AppFooterDisclaimer";
 import { AppHeaderCard } from "../components/AppHeaderCard";
+import {
+  CampsiteSetupCard,
+  CampsiteType,
+} from "../components/CampsiteSetupCard";
+import { CurrentCoachModeCard } from "../components/CurrentCoachModeCard";
 import { GuidanceCard } from "../components/GuidanceCard";
 import { HowToUseCard } from "../components/HowToUseCard";
 import { ParkingTypeSelector } from "../components/ParkingTypeSelector";
 import { RigSetupCard } from "../components/RigSetupCard";
 import { SafetyDisclaimerCard } from "../components/SafetyDisclaimerCard";
 import { SavedRigSetupCard } from "../components/SavedRigSetupCard";
+import { SetupReviewCard } from "../components/SetupReviewCard";
 import {
   SiteObstacle,
   SiteObstacleSelector,
 } from "../components/SiteObstacleSelector";
 import { ParkingType, guidanceByType } from "../constants/parkingGuidance";
-
 const RIG_SETUP_STORAGE_KEY = "rvParkingRigSetup";
 
 type SavedRigSetup = {
@@ -50,7 +55,9 @@ function getObstacleWarning(obstacles: SiteObstacle[]) {
 export default function Index() {
   const [truckLength, setTruckLength] = useState("20");
   const [trailerLength, setTrailerLength] = useState("30");
-
+  const CAMPSITE_TYPE_STORAGE_KEY = "rvAssist.campsiteType";
+  const OBSTACLES_STORAGE_KEY = "rvAssist.obstacles";
+  const PARKING_TYPE_STORAGE_KEY = "rvAssist.parkingType";
   const [draftTruckLength, setDraftTruckLength] = useState("20");
   const [draftTrailerLength, setDraftTrailerLength] = useState("30");
 
@@ -62,6 +69,8 @@ export default function Index() {
   const [scenario, setScenario] = useState<"easy" | "normal" | "tight">(
     "normal",
   );
+  const [campsiteType, setCampsiteType] =
+    useState<CampsiteType>("straightBackIn");
 
   const [obstacles, setObstacles] = useState<SiteObstacle[]>([]);
 
@@ -107,6 +116,118 @@ export default function Index() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    async function loadSavedCampsiteType() {
+      try {
+        const savedCampsiteType = await AsyncStorage.getItem(
+          CAMPSITE_TYPE_STORAGE_KEY,
+        );
+
+        if (
+          savedCampsiteType === "straightBackIn" ||
+          savedCampsiteType === "angledSite" ||
+          savedCampsiteType === "tightCampgroundRoad" ||
+          savedCampsiteType === "narrowDriveway"
+        ) {
+          setCampsiteType(savedCampsiteType);
+        }
+      } catch (error) {
+        console.log("Failed to load saved campsite type", error);
+      }
+    }
+
+    loadSavedCampsiteType();
+  }, []);
+
+  useEffect(() => {
+    async function loadSavedObstacles() {
+      try {
+        const savedObstacles = await AsyncStorage.getItem(
+          OBSTACLES_STORAGE_KEY,
+        );
+
+        if (!savedObstacles) return;
+
+        const parsedObstacles = JSON.parse(savedObstacles);
+
+        if (!Array.isArray(parsedObstacles)) return;
+
+        const validObstacles = parsedObstacles.filter(
+          (obstacle): obstacle is SiteObstacle =>
+            obstacle === "treeLeft" ||
+            obstacle === "poleRight" ||
+            obstacle === "lowBranch" ||
+            obstacle === "tightHookupSide",
+        );
+
+        setObstacles(validObstacles);
+      } catch (error) {
+        console.log("Failed to load saved obstacles", error);
+      }
+    }
+
+    loadSavedObstacles();
+  }, []);
+  useEffect(() => {
+    async function saveObstacles() {
+      try {
+        await AsyncStorage.setItem(
+          OBSTACLES_STORAGE_KEY,
+          JSON.stringify(obstacles),
+        );
+      } catch (error) {
+        console.log("Failed to save obstacles", error);
+      }
+    }
+
+    saveObstacles();
+  }, [obstacles]);
+
+  useEffect(() => {
+    async function loadSavedParkingType() {
+      try {
+        const savedParkingType = await AsyncStorage.getItem(
+          PARKING_TYPE_STORAGE_KEY,
+        );
+
+        if (
+          savedParkingType === "back-in" ||
+          savedParkingType === "pull-through"
+        ) {
+          setParkingType(savedParkingType);
+        }
+      } catch (error) {
+        console.log("Failed to load saved parking type", error);
+      }
+    }
+
+    loadSavedParkingType();
+  }, []);
+
+  useEffect(() => {
+    async function saveParkingType() {
+      try {
+        await AsyncStorage.setItem(PARKING_TYPE_STORAGE_KEY, parkingType);
+      } catch (error) {
+        console.log("Failed to save parking type", error);
+      }
+    }
+
+    saveParkingType();
+  }, [parkingType]);
+
+  useEffect(() => {
+    async function saveCampsiteType() {
+      try {
+        await AsyncStorage.setItem(CAMPSITE_TYPE_STORAGE_KEY, campsiteType);
+      } catch (error) {
+        console.log("Failed to save campsite type", error);
+      }
+    }
+
+    saveCampsiteType();
+  }, [campsiteType]);
 
   function selectParkingType(type: ParkingType) {
     setParkingType(type);
@@ -251,7 +372,21 @@ export default function Index() {
         selectParkingType={selectParkingType}
       />
 
+      {parkingType === "back-in" ? (
+        <CampsiteSetupCard
+          campsiteType={campsiteType}
+          setCampsiteType={setCampsiteType}
+        />
+      ) : null}
+
       <SiteObstacleSelector obstacles={obstacles} setObstacles={setObstacles} />
+      <SetupReviewCard
+        parkingType={parkingType}
+        backingSide={backingSide}
+        scenario={scenario}
+        campsiteType={campsiteType}
+        obstacles={obstacles}
+      />
 
       {obstacleWarnings.length > 0 ? (
         <View
@@ -290,6 +425,14 @@ export default function Index() {
         </View>
       ) : null}
 
+      <CurrentCoachModeCard
+        parkingType={parkingType}
+        backingSide={backingSide}
+        campsiteType={campsiteType}
+        obstacles={obstacles}
+        scenario={scenario}
+      />
+
       <GuidanceCard
         currentStep={currentStep}
         stepIndex={safeStepIndex}
@@ -302,6 +445,8 @@ export default function Index() {
         scenario={scenario}
         setScenario={setScenario}
         obstacles={obstacles}
+        campsiteType={campsiteType}
+        parkingType={parkingType}
       />
 
       <AppFooterDisclaimer />

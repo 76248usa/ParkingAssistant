@@ -4,16 +4,16 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Speech from "expo-speech";
 import { useEffect, useRef, useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
-import { GuidanceStep } from "../constants/parkingGuidance";
-import { AutoCoachingBanner } from "./AutoCoachingBanner";
-import { CompactLiveCoachCard } from "./CompactLiveCoachCard";
+import { GuidanceStep, ParkingType } from "../constants/parkingGuidance";
+import { CampsiteType } from "./CampsiteSetupCard";
 import { CompactRigStatusRow } from "./CompactRigStatusRow";
 import { ParkingDiagram } from "./ParkingDiagram";
 import { PracticeSession } from "./PracticeHistoryCard";
 import { PracticeAction } from "./PracticeModeControls";
+import { RecoveryCoachCard } from "./RecoveryCoachCard";
 import { SessionStats } from "./SessionStatsCard";
-import { SimulatorStatusCard } from "./SimulatorStatusCard";
 import { SiteObstacle } from "./SiteObstacleSelector";
+import { SmartNextMoveCard } from "./SmartNextMoveCard";
 import { SteeringWheel } from "./SteeringWheel";
 
 const PRACTICE_HISTORY_STORAGE_KEY = "rvParkingPracticeHistory";
@@ -37,6 +37,8 @@ type Props = {
   scenario: Scenario;
   setScenario: (scenario: Scenario) => void;
   obstacles: SiteObstacle[];
+  campsiteType: CampsiteType;
+  parkingType: ParkingType;
 };
 
 export function GuidanceCard({
@@ -46,11 +48,13 @@ export function GuidanceCard({
   goBack,
   goNext,
   restartPractice,
+  parkingType,
   backingSide,
   setBackingSide,
   scenario,
   setScenario,
   obstacles,
+  campsiteType,
 }: Props) {
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [practiceAction, setPracticeAction] = useState<PracticeAction>("idle");
@@ -963,7 +967,7 @@ export function GuidanceCard({
         trailerAngle={simulatedTrailerAngle}
         scenario={scenario}
       />
-      <View
+      {/* <View
         style={{
           marginTop: 12,
           padding: 12,
@@ -981,7 +985,7 @@ export function GuidanceCard({
         >
           {trainingFeedback}
         </Text>
-      </View>
+      </View> */}
       <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
         <TouchableOpacity
           onPress={() => {
@@ -1074,15 +1078,32 @@ export function GuidanceCard({
         practiceAction={practiceAction}
         movementTrail={movementTrail}
       /> */}
-
       <ParkingDiagram
         stepIndex={stepIndex}
         backingSide={backingSide}
+        campsiteType={campsiteType}
         simulatedTruckAngle={simulatedTruckAngle}
         simulatedTrailerAngle={simulatedTrailerAngle}
         movementTrail={movementTrail}
         obstacles={obstacles}
+        parkingType={parkingType}
       />
+      <SmartNextMoveCard
+        stepIndex={stepIndex}
+        backingSide={backingSide}
+        campsiteType={campsiteType}
+        obstacles={obstacles}
+        scenario={scenario}
+        voiceEnabled={voiceEnabled}
+        parkingType={parkingType}
+      />
+      <RecoveryCoachCard
+        backingSide={backingSide}
+        obstacles={obstacles}
+        voiceEnabled={voiceEnabled}
+        campsiteType={campsiteType}
+      />
+
       {jackknifeAutoStopActive ? (
         <View
           style={{
@@ -1276,7 +1297,7 @@ export function GuidanceCard({
           </TouchableOpacity>
         </View>
       ) : null}
-      <AutoCoachingBanner
+      {/* <AutoCoachingBanner
         stepIndex={stepIndex}
         backingSide={backingSide}
         scenario={scenario}
@@ -1284,8 +1305,7 @@ export function GuidanceCard({
         trailerAngle={simulatedTrailerAngle}
         steeringAngle={displaySteeringAngle}
         practiceAction={practiceAction}
-      />
-
+      /> */}
       {/* 
 
       {showControlPad ? (
@@ -1332,7 +1352,6 @@ export function GuidanceCard({
             recoveryComplete={recoveryComplete}
             onNextStep={goNext}
           /> */}
-
       {/* <PracticeModeControls
             practiceAction={practiceAction}
             onPracticeAction={handlePracticeAction}
@@ -1362,7 +1381,6 @@ export function GuidanceCard({
           </TouchableOpacity> */}
       {/* </View>
       ) : null} */}
-
       {/* <TouchableOpacity
         onPress={startNewSession}
         style={{
@@ -1385,7 +1403,7 @@ export function GuidanceCard({
           🆕 Start New Session
         </Text>
       </TouchableOpacity> */}
-      {hasStartedPractice ||
+      {/* {hasStartedPractice ||
       jackknifeAutoStopActive ||
       isRecoveringFromJackknife ? (
         <CompactLiveCoachCard
@@ -1399,15 +1417,14 @@ export function GuidanceCard({
           jackknifeAutoStopActive={jackknifeAutoStopActive}
           isRecoveringFromJackknife={isRecoveringFromJackknife}
         />
-      ) : null}
-      <SimulatorStatusCard
+      ) : null} */}
+      {/* <SimulatorStatusCard
         practiceAction={practiceAction}
         simulatedSteeringAngle={displaySteeringAngle}
         simulatedTruckAngle={simulatedTruckAngle}
         simulatedTrailerAngle={simulatedTrailerAngle}
         scenario={scenario}
-      />
-
+      />  */}
       {/* {practiceSessions.length > 0 ? (
         <TouchableOpacity
           onPress={clearPracticeHistory}

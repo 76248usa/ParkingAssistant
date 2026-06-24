@@ -21,7 +21,7 @@ type Props = {
 };
 
 const CANVAS_WIDTH = 420;
-const CANVAS_HEIGHT = 220;
+const CANVAS_HEIGHT = 270;
 
 const TRAILER_WIDTH = 88;
 const TRAILER_HEIGHT = 30;
@@ -272,13 +272,29 @@ function getPose(
     finalRotation,
   );
 }
+
+function getDiagramStepLabel(parkingType: ParkingType, stepIndex: number) {
+  if (parkingType === "pull-through") {
+    if (stepIndex === 0) return "Line up with pull-through lane";
+    if (stepIndex === 1) return "Pull forward slowly";
+    if (stepIndex === 2) return "Stay centered through the site";
+    if (stepIndex === 3) return "Ease forward into position";
+    return "Stop and check final position";
+  }
+
+  if (stepIndex === 0) return "Pull forward past campsite entrance";
+  if (stepIndex === 1) return "Trailer axle past entrance — start backing";
+  if (stepIndex === 2) return "Rear of trailer turns toward site";
+  if (stepIndex === 3) return "Trailer entering site — follow and straighten";
+  return "Trailer centered in campsite";
+}
 function getParkingSpace(
   backingSide: "left" | "right",
   campsiteType: CampsiteType,
 ) {
   const baseSpace = {
     left: 210,
-    top: 30,
+    top: 46,
     width: PARKING_SPACE_WIDTH,
     height: PARKING_SPACE_HEIGHT,
     rotation: 0,
@@ -288,7 +304,7 @@ function getParkingSpace(
     campsiteType === "angledSite"
       ? {
           left: 236,
-          top: 28,
+          top: 44,
           width: 122,
           height: 82,
           rotation: -10,
@@ -296,7 +312,7 @@ function getParkingSpace(
       : campsiteType === "tightCampgroundRoad"
         ? {
             left: 232,
-            top: 30,
+            top: 46,
             width: 100,
             height: 82,
             rotation: 0,
@@ -304,13 +320,12 @@ function getParkingSpace(
         : campsiteType === "narrowDriveway"
           ? {
               left: 248,
-              top: 18,
+              top: 36,
               width: 66,
               height: 106,
               rotation: 0,
             }
           : baseSpace;
-
   if (backingSide === "right") {
     return rightSideSpace;
   }
@@ -669,13 +684,35 @@ export function ParkingDiagram({
         alignItems: "center",
       }}
     >
+      {/* Diagram step label - outside the canvas so it does not cover the campsite */}
       <View
         style={{
           width: "100%",
           maxWidth: CANVAS_WIDTH,
-          //maxWidth: 460,
+          marginBottom: 6,
+          paddingVertical: 7,
+          paddingHorizontal: 10,
+          borderRadius: 999,
+          backgroundColor: "#0f172a",
+        }}
+      >
+        <Text
+          style={{
+            color: "white",
+            fontSize: 11,
+            fontWeight: "900",
+            textAlign: "center",
+          }}
+        >
+          {getDiagramStepLabel(parkingType, stepIndex)}
+        </Text>
+      </View>
+
+      <View
+        style={{
+          width: "100%",
+          maxWidth: CANVAS_WIDTH,
           height: CANVAS_HEIGHT,
-          //height: 250,
           borderRadius: 16,
           borderWidth: 1,
           borderColor: "#cbd5e1",

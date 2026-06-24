@@ -7,6 +7,7 @@ import { Text, TouchableOpacity, View } from "react-native";
 import { GuidanceStep, ParkingType } from "../constants/parkingGuidance";
 import { CampsiteType } from "./CampsiteSetupCard";
 import { CompactRigStatusRow } from "./CompactRigStatusRow";
+import { GetOutAndLookCard } from "./GetOutAndLookCard";
 import { ParkingDiagram } from "./ParkingDiagram";
 import { PracticeSession } from "./PracticeHistoryCard";
 import { PracticeAction } from "./PracticeModeControls";
@@ -1087,6 +1088,11 @@ export function GuidanceCard({
         movementTrail={movementTrail}
         obstacles={obstacles}
         parkingType={parkingType}
+      />
+      <GetOutAndLookCard
+        parkingType={parkingType}
+        stepIndex={stepIndex}
+        obstacles={obstacles}
       />
       <SmartNextMoveCard
         stepIndex={stepIndex}

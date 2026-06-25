@@ -81,6 +81,7 @@ export function GuidanceCard({
     recoveryCompletions: 0,
   });
 
+  const [drivingView, setDrivingView] = useState(false);
   const hasSpokenAutoStopRef = useRef(false);
   const hasSpokenRecoveryCompleteRef = useRef(false);
   const hasSpokenResumeBackingRef = useRef(false);
@@ -1069,16 +1070,29 @@ export function GuidanceCard({
           </Text>
         </View>
       ) : null}
-      {/* <ParkingDiagram
-        stepIndex={stepIndex}
-        backingSide={backingSide}
-        obstacles={obstacles}
-        simulatedTruckAngle={simulatedTruckAngle}
-        simulatedTrailerAngle={simulatedTrailerAngle}
-        simulatedSteeringAngle={simulatedSteeringAngle}
-        practiceAction={practiceAction}
-        movementTrail={movementTrail}
-      /> */}
+
+      <TouchableOpacity
+        onPress={() => setDrivingView((current) => !current)}
+        activeOpacity={0.85}
+        style={{
+          marginTop: 12,
+          paddingVertical: 10,
+          paddingHorizontal: 14,
+          borderRadius: 999,
+          backgroundColor: drivingView ? "#0f172a" : "#e2e8f0",
+          alignSelf: "center",
+        }}
+      >
+        <Text
+          style={{
+            color: drivingView ? "white" : "#0f172a",
+            fontSize: 13,
+            fontWeight: "900",
+          }}
+        >
+          {drivingView ? "Exit Driving View" : "Open Driving View"}
+        </Text>
+      </TouchableOpacity>
       <ParkingDiagram
         stepIndex={stepIndex}
         backingSide={backingSide}
@@ -1088,6 +1102,7 @@ export function GuidanceCard({
         movementTrail={movementTrail}
         obstacles={obstacles}
         parkingType={parkingType}
+        drivingView={drivingView}
       />
       <GetOutAndLookCard
         parkingType={parkingType}

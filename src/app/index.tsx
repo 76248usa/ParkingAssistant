@@ -14,6 +14,7 @@ import { CurrentCoachModeCard } from "../components/CurrentCoachModeCard";
 import { GuidanceCard } from "../components/GuidanceCard";
 import { HowToUseCard } from "../components/HowToUseCard";
 import { ParkingTypeSelector } from "../components/ParkingTypeSelector";
+import { ReadyToBackChecklistCard } from "../components/ReadyToBackChecklistCard";
 import { RigSetupCard } from "../components/RigSetupCard";
 import { SafetyDisclaimerCard } from "../components/SafetyDisclaimerCard";
 import { SavedRigSetupCard } from "../components/SavedRigSetupCard";
@@ -431,6 +432,11 @@ export default function Index() {
         campsiteType={campsiteType}
         obstacles={obstacles}
         scenario={scenario}
+      />
+
+      <ReadyToBackChecklistCard
+        parkingType={parkingType}
+        obstacles={obstacles}
       />
 
       <GuidanceCard

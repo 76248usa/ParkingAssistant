@@ -18,11 +18,12 @@ type Props = {
   movementTrail?: TrailPoint[];
   obstacles?: SiteObstacle[];
   parkingType: ParkingType;
+  drivingView?: boolean;
 };
 
 const CANVAS_WIDTH = 420;
-const CANVAS_HEIGHT = 270;
-
+const NORMAL_CANVAS_HEIGHT = 270;
+const DRIVING_CANVAS_HEIGHT = 350;
 const TRAILER_WIDTH = 88;
 const TRAILER_HEIGHT = 30;
 
@@ -113,9 +114,18 @@ function getPose(
   const truckWidth = 58;
   const truckHeight = 30;
 
-  const direction = backingSide === "right" ? 1 : -1;
+  const siteCenterX = parkingSpace.left + parkingSpace.width / 2;
+  const siteCenterY = parkingSpace.top + parkingSpace.height / 2;
+  const roadCenterY = 162;
 
   const finalRotation = backingSide === "right" ? 90 : -90;
+
+  // Which side of the campsite the rig approaches from.
+  const approachSide = backingSide === "right" ? -1 : 1;
+
+  // Which side of the trailer the truck should appear on.
+  // This is the part that fixes the left-side jump.
+  const truckSide = backingSide === "right" ? 1 : -1;
 
   function fromCenters(
     trailerCenterX: number,
@@ -138,67 +148,49 @@ function getPose(
   function getTruckCenterFromTrailer(
     trailerCenterX: number,
     trailerCenterY: number,
-    progressIntoSite: number,
+    trailerRotation: number,
   ) {
-    /*
-      progressIntoSite:
-      0 = truck is forward on the road beside/ahead of trailer
-      1 = truck is in front of trailer near the campsite entrance/road
-
-      This keeps the truck in front of the trailer instead of over/behind it.
-    */
-    const horizontalGap = direction * (112 * (1 - progressIntoSite));
-    const verticalGap = 92 * progressIntoSite;
+    const hitchDistance = 96;
+    const angleRadians = (trailerRotation * Math.PI) / 180;
 
     return {
-      truckCenterX: trailerCenterX + horizontalGap,
-      truckCenterY: trailerCenterY + verticalGap,
+      truckCenterX:
+        trailerCenterX + truckSide * Math.cos(angleRadians) * hitchDistance,
+      truckCenterY:
+        trailerCenterY + truckSide * Math.sin(angleRadians) * hitchDistance,
     };
   }
 
-  const siteCenterX = parkingSpace.left + parkingSpace.width / 2;
-  const siteCenterY = parkingSpace.top + parkingSpace.height / 2;
-
-  const roadCenterY = 162;
-
-  /*
-    Correct back-in sequence:
-
-    Step 0 = Pull forward past the site
-    Step 1 = Trailer axle just past entrance; start backing turn
-    Step 2 = Trailer begins turning toward campsite
-    Step 3 = Trailer entering site; truck follows from road
-    Step 4+ = Trailer centered perpendicular in site
-  */
-
   if (stepIndex === 0) {
-    // Pull forward past the site. Rig is straight on the road.
-    const trailerCenterX = siteCenterX - direction * 34;
+    const trailerCenterX = siteCenterX + approachSide * 118;
     const trailerCenterY = roadCenterY;
+    const trailerRotation = 0;
 
-    const truckCenterX = trailerCenterX + direction * 112;
-    const truckCenterY = roadCenterY;
+    const { truckCenterX, truckCenterY } = getTruckCenterFromTrailer(
+      trailerCenterX,
+      trailerCenterY,
+      trailerRotation,
+    );
 
     return fromCenters(
       trailerCenterX,
       trailerCenterY,
       truckCenterX,
       truckCenterY,
-      0,
+      trailerRotation,
       0,
     );
   }
 
   if (stepIndex === 1) {
-    // Trailer axle is now just past the campsite entrance.
-    // Backing starts. Trailer begins turning toward the campsite.
-    const trailerCenterX = siteCenterX + direction * 8;
-    const trailerCenterY = roadCenterY - 2;
+    const trailerCenterX = siteCenterX + approachSide * 92;
+    const trailerCenterY = roadCenterY;
+    const trailerRotation = finalRotation * 0.18;
 
     const { truckCenterX, truckCenterY } = getTruckCenterFromTrailer(
       trailerCenterX,
       trailerCenterY,
-      0.12,
+      trailerRotation,
     );
 
     return fromCenters(
@@ -206,21 +198,20 @@ function getPose(
       trailerCenterY,
       truckCenterX,
       truckCenterY,
-      finalRotation * 0.14,
-      finalRotation * 0.22,
+      trailerRotation,
+      trailerRotation * 0.65,
     );
   }
 
   if (stepIndex === 2) {
-    // Trailer is turning toward the campsite entrance.
-    // Truck remains in front, still mostly on the road.
-    const trailerCenterX = siteCenterX + direction * 18;
-    const trailerCenterY = siteCenterY + 86;
+    const trailerCenterX = siteCenterX + approachSide * 48;
+    const trailerCenterY = siteCenterY + 82;
+    const trailerRotation = finalRotation * 0.42;
 
     const { truckCenterX, truckCenterY } = getTruckCenterFromTrailer(
       trailerCenterX,
       trailerCenterY,
-      0.42,
+      trailerRotation,
     );
 
     return fromCenters(
@@ -228,21 +219,20 @@ function getPose(
       trailerCenterY,
       truckCenterX,
       truckCenterY,
-      finalRotation * 0.42,
-      finalRotation * 0.32,
+      trailerRotation,
+      trailerRotation * 0.75,
     );
   }
 
   if (stepIndex === 3) {
-    // Trailer is entering the site. Start following and straightening.
-    // Truck stays in front of trailer near the road.
-    const trailerCenterX = siteCenterX + direction * 8;
-    const trailerCenterY = siteCenterY + 44;
+    const trailerCenterX = siteCenterX + approachSide * 22;
+    const trailerCenterY = siteCenterY + 48;
+    const trailerRotation = finalRotation * 0.72;
 
     const { truckCenterX, truckCenterY } = getTruckCenterFromTrailer(
       trailerCenterX,
       trailerCenterY,
-      0.72,
+      trailerRotation,
     );
 
     return fromCenters(
@@ -250,13 +240,11 @@ function getPose(
       trailerCenterY,
       truckCenterX,
       truckCenterY,
-      finalRotation * 0.72,
-      finalRotation * 0.55,
+      trailerRotation,
+      trailerRotation * 0.8,
     );
   }
 
-  // Final parked position:
-  // Trailer is perpendicular to the road and centered in the campsite.
   const finalTrailerCenterX = siteCenterX;
   const finalTrailerCenterY = siteCenterY;
 
@@ -465,6 +453,7 @@ export function ParkingDiagram({
   movementTrail = [],
   obstacles = [],
   parkingType,
+  drivingView = false,
 }: Props) {
   if (parkingType === "pull-through") {
     return (
@@ -676,7 +665,9 @@ export function ParkingDiagram({
 
   const trailerRotation = pose.trailerRotation + simulatedTrailerAngle * 0.35;
   const truckRotation = pose.truckRotation + simulatedTruckAngle * 0.35;
-
+  const canvasHeight = drivingView
+    ? DRIVING_CANVAS_HEIGHT
+    : NORMAL_CANVAS_HEIGHT;
   return (
     <View
       style={{
@@ -712,7 +703,7 @@ export function ParkingDiagram({
         style={{
           width: "100%",
           maxWidth: CANVAS_WIDTH,
-          height: CANVAS_HEIGHT,
+          height: canvasHeight,
           borderRadius: 16,
           borderWidth: 1,
           borderColor: "#cbd5e1",
@@ -947,26 +938,7 @@ export function ParkingDiagram({
             }}
           />
         </View>
-        {/* Hitch connector */}
-        <View
-          style={{
-            position: "absolute",
-            left:
-              backingSide === "right"
-                ? pose.trailerLeft + 76
-                : pose.truckLeft + 58,
-            top: pose.trailerTop + 18,
-            width:
-              backingSide === "right"
-                ? Math.max(12, pose.truckLeft - (pose.trailerLeft + 76))
-                : Math.max(12, pose.trailerLeft - (pose.truckLeft + 58)),
-            height: 2,
-            backgroundColor: "#64748b",
-            opacity: 0.65,
-            borderRadius: 999,
-            transform: [{ rotate: `${trailerRotation * 0.25}deg` }],
-          }}
-        />
+
         {/* Truck */}
         <View
           style={{
@@ -993,7 +965,6 @@ export function ParkingDiagram({
           >
             TRUCK
           </Text>
-
           <View
             style={{
               position: "absolute",
@@ -1018,6 +989,23 @@ export function ParkingDiagram({
             }}
           />
         </View>
+        {/* Hitch position marker */}
+        <View
+          style={{
+            position: "absolute",
+            left: (pose.trailerLeft + pose.truckLeft) / 2 + 34,
+            top: (pose.trailerTop + pose.truckTop) / 2 + 16,
+            width: 12,
+            height: 12,
+            borderRadius: 6,
+
+            backgroundColor: "#475569",
+            borderWidth: 2,
+            borderColor: "white",
+            zIndex: 50,
+            elevation: 50,
+          }}
+        />
         {/* Backing side label */}
         <View
           style={{

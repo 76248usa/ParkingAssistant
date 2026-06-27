@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Speech from "expo-speech";
+import React, { useEffect, useRef, useState } from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { ParkingType } from "../constants/parkingGuidance";
 import { ClearanceValues } from "../types/clearance";
@@ -6,11 +8,13 @@ import {
   ClearanceItem,
   getClearanceLevel,
   getLevelStyles,
+  getSpecificWarningReason,
+  getVoiceWarning,
   parseDistance,
 } from "../utils/clearanceWarnings";
 import { DistanceWarningSummaryCard } from "./DistanceWarningSummaryCard";
 import { SiteObstacle } from "./SiteObstacleSelector";
-
+const AUTO_STOP_VOICE_ALERTS_KEY = "rv_auto_stop_voice_alerts_enabled";
 type Props = {
   parkingType: ParkingType;
   obstacles: SiteObstacle[];
@@ -25,6 +29,8 @@ export function ObstacleDistanceInputCard({
   onChangeClearanceValues,
 }: Props) {
   const [expanded, setExpanded] = useState(true);
+  const lastAutoSpokenStopReasonRef = useRef<string | null>(null);
+
   const leftClearance = clearanceValues.left;
   const rightClearance = clearanceValues.right;
   const rearClearance = clearanceValues.rear;
@@ -73,6 +79,67 @@ export function ObstacleDistanceInputCard({
     },
   ];
 
+  const [autoVoiceAlertsEnabled, setAutoVoiceAlertsEnabled] = useState(true);
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadAutoVoiceSetting() {
+      try {
+        const savedValue = await AsyncStorage.getItem(
+          AUTO_STOP_VOICE_ALERTS_KEY,
+        );
+
+        if (!isMounted || savedValue === null) return;
+
+        setAutoVoiceAlertsEnabled(savedValue === "true");
+      } catch {
+        // Keep default setting if loading fails.
+      }
+    }
+
+    loadAutoVoiceSetting();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const levels = clearanceItems.map((item) => getClearanceLevel(item.value));
+    const hasStopLevel = levels.includes("stop");
+
+    if (!hasStopLevel) {
+      lastAutoSpokenStopReasonRef.current = null;
+      return;
+    }
+
+    if (!autoVoiceAlertsEnabled) {
+      return;
+    }
+
+    const warningReason = getSpecificWarningReason(clearanceItems);
+    const voiceWarning = getVoiceWarning("stop", warningReason);
+
+    if (lastAutoSpokenStopReasonRef.current === voiceWarning) {
+      return;
+    }
+
+    lastAutoSpokenStopReasonRef.current = voiceWarning;
+
+    const timeoutId = setTimeout(() => {
+      Speech.stop();
+
+      setTimeout(() => {
+        Speech.speak(voiceWarning, {
+          language: "en-US",
+          rate: 0.9,
+          pitch: 1.0,
+        });
+      }, 150);
+    }, 250);
+
+    return () => clearTimeout(timeoutId);
+  }, [leftValue, rightValue, rearValue, roofValue, autoVoiceAlertsEnabled]);
   const obstacleText =
     obstacles.length === 0
       ? "No selected obstacles"
@@ -149,7 +216,45 @@ export function ObstacleDistanceInputCard({
       {expanded ? (
         <>
           <DistanceWarningSummaryCard clearanceItems={clearanceItems} />
+          <TouchableOpacity
+            onPress={async () => {
+              setAutoVoiceAlertsEnabled((current) => {
+                const nextValue = !current;
 
+                AsyncStorage.setItem(
+                  AUTO_STOP_VOICE_ALERTS_KEY,
+                  String(nextValue),
+                ).catch(() => {
+                  // Ignore storage errors and keep the UI responsive.
+                });
+
+                return nextValue;
+              });
+
+              Speech.stop();
+            }}
+            activeOpacity={0.85}
+            style={{
+              marginTop: 6,
+              paddingVertical: 10,
+              paddingHorizontal: 12,
+              borderRadius: 12,
+              backgroundColor: autoVoiceAlertsEnabled ? "#0f172a" : "#64748b",
+            }}
+          >
+            <Text
+              style={{
+                color: "white",
+                textAlign: "center",
+                fontSize: 13,
+                fontWeight: "900",
+              }}
+            >
+              {autoVoiceAlertsEnabled
+                ? "Auto STOP Voice Alerts: On"
+                : "Auto STOP Voice Alerts: Off"}
+            </Text>
+          </TouchableOpacity>
           <Text
             style={{
               marginTop: 12,
@@ -160,7 +265,6 @@ export function ObstacleDistanceInputCard({
           >
             Selected setup
           </Text>
-
           <Text
             style={{
               marginTop: 4,
@@ -173,7 +277,6 @@ export function ObstacleDistanceInputCard({
             {parkingType === "pull-through" ? "Pull-through" : "Back-in"} •{" "}
             {obstacleText}
           </Text>
-
           <View style={{ marginTop: 12, gap: 10 }}>
             <DistanceInputRow
               label="Left side clearance"
@@ -199,7 +302,6 @@ export function ObstacleDistanceInputCard({
               onChangeText={setRoofClearance}
             />
           </View>
-
           <Text
             style={{
               marginTop: 10,
@@ -213,7 +315,6 @@ export function ObstacleDistanceInputCard({
             Enter distances in inches. 36 inches or less = caution. 18 inches or
             less = stop and get out to look.
           </Text>
-
           <TouchableOpacity
             onPress={() => {
               onChangeClearanceValues({

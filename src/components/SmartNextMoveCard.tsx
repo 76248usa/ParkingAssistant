@@ -2,6 +2,14 @@ import * as Speech from "expo-speech";
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { ParkingType } from "../constants/parkingGuidance";
+import { ClearanceValues } from "../types/clearance";
+import {
+  ClearanceItem,
+  getClearanceLevel,
+  getLevelStyles,
+  getSpecificWarningReason,
+  parseDistance,
+} from "../utils/clearanceWarnings";
 import { CampsiteType } from "./CampsiteSetupCard";
 import { SiteObstacle } from "./SiteObstacleSelector";
 
@@ -15,6 +23,7 @@ type Props = {
   obstacles: SiteObstacle[];
   scenario: Scenario;
   voiceEnabled: boolean;
+  clearanceValues: ClearanceValues;
 };
 
 function getSideMirror(backingSide: "left" | "right") {
@@ -286,6 +295,7 @@ export function SmartNextMoveCard({
   obstacles,
   scenario,
   voiceEnabled,
+  clearanceValues,
 }: Props) {
   const advice = getStepMove(
     parkingType,
@@ -309,6 +319,47 @@ export function SmartNextMoveCard({
       pitch: 1.0,
     });
   }
+  const clearanceItems: ClearanceItem[] = [
+    {
+      key: "left",
+      label: "Left side clearance",
+      value: parseDistance(clearanceValues.left),
+    },
+    {
+      key: "right",
+      label: "Right side clearance",
+      value: parseDistance(clearanceValues.right),
+    },
+    {
+      key: "rear",
+      label: "Rear clearance",
+      value: parseDistance(clearanceValues.rear),
+    },
+    {
+      key: "roof",
+      label: "Roof / branch clearance",
+      value: parseDistance(clearanceValues.roof),
+    },
+  ];
+
+  const hasAnyClearanceValue =
+    clearanceValues.left.trim() !== "" ||
+    clearanceValues.right.trim() !== "" ||
+    clearanceValues.rear.trim() !== "" ||
+    clearanceValues.roof.trim() !== "";
+
+  const clearanceLevels = clearanceItems.map((item) =>
+    getClearanceLevel(item.value),
+  );
+
+  const clearanceWorstLevel = clearanceLevels.includes("stop")
+    ? "stop"
+    : clearanceLevels.includes("caution")
+      ? "caution"
+      : "safe";
+
+  const clearanceStyles = getLevelStyles(clearanceWorstLevel);
+  const clearanceReason = getSpecificWarningReason(clearanceItems);
 
   return (
     <View
@@ -497,6 +548,57 @@ export function SmartNextMoveCard({
           {scenarioReminder}
         </Text>
       </View>
+      {hasAnyClearanceValue ? (
+        <View
+          style={{
+            marginTop: 12,
+            padding: 10,
+            borderRadius: 12,
+            backgroundColor: clearanceStyles.backgroundColor,
+            borderWidth: 1,
+            borderColor: clearanceStyles.borderColor,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 12,
+              fontWeight: "900",
+              color: clearanceStyles.textColor,
+              textTransform: "uppercase",
+              letterSpacing: 0.4,
+            }}
+          >
+            🛑 Distance Safety Warning
+          </Text>
+
+          <Text
+            style={{
+              marginTop: 5,
+              fontSize: 13,
+              fontWeight: "900",
+              color: clearanceStyles.textColor,
+              lineHeight: 18,
+            }}
+          >
+            {clearanceStyles.label}: {clearanceReason}
+          </Text>
+
+          {clearanceWorstLevel === "stop" ? (
+            <Text
+              style={{
+                marginTop: 6,
+                fontSize: 12,
+                fontWeight: "800",
+                color: clearanceStyles.textColor,
+                lineHeight: 17,
+              }}
+            >
+              Do not continue backing until you have checked the obstacle and
+              confirmed clearance.
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }

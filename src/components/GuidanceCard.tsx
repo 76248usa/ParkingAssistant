@@ -141,6 +141,12 @@ export function GuidanceCard({
     },
   ];
 
+  const hasAnyClearanceValue =
+    clearanceValues.left.trim() !== "" ||
+    clearanceValues.right.trim() !== "" ||
+    clearanceValues.rear.trim() !== "" ||
+    clearanceValues.roof.trim() !== "";
+
   function getDriverSteeringGuidance() {
     const guidanceText =
       `${voicePrompt} ${currentStep.title} ${currentStep.instruction}`.toLowerCase();
@@ -1095,12 +1101,13 @@ export function GuidanceCard({
           parkingType={parkingType}
         />
 
-        <DistanceWarningSummaryCard
-          clearanceItems={clearanceItems}
-          compact={true}
-          showVoiceButton={false}
-        />
-
+        {hasAnyClearanceValue ? (
+          <DistanceWarningSummaryCard
+            clearanceItems={clearanceItems}
+            compact={true}
+            showVoiceButton={false}
+          />
+        ) : null}
         <GetOutAndLookCard
           parkingType={parkingType}
           stepIndex={stepIndex}
@@ -1115,6 +1122,7 @@ export function GuidanceCard({
           scenario={scenario}
           voiceEnabled={voiceEnabled}
           parkingType={parkingType}
+          clearanceValues={clearanceValues}
         />
 
         <RecoveryCoachCard

@@ -13,6 +13,7 @@ import {
 import { CurrentCoachModeCard } from "../components/CurrentCoachModeCard";
 import { GuidanceCard } from "../components/GuidanceCard";
 import { HowToUseCard } from "../components/HowToUseCard";
+import { ObstacleDistanceInputCard } from "../components/ObstacleDistanceInputCard";
 import { ParkingTypeSelector } from "../components/ParkingTypeSelector";
 import { ReadyToBackChecklistCard } from "../components/ReadyToBackChecklistCard";
 import { RigSetupCard } from "../components/RigSetupCard";
@@ -24,6 +25,7 @@ import {
   SiteObstacleSelector,
 } from "../components/SiteObstacleSelector";
 import { ParkingType, guidanceByType } from "../constants/parkingGuidance";
+import { ClearanceValues } from "../types/clearance";
 const RIG_SETUP_STORAGE_KEY = "rvParkingRigSetup";
 
 type SavedRigSetup = {
@@ -140,6 +142,13 @@ export default function Index() {
 
     loadSavedCampsiteType();
   }, []);
+
+  const [clearanceValues, setClearanceValues] = useState<ClearanceValues>({
+    left: "",
+    right: "",
+    rear: "",
+    roof: "",
+  });
 
   useEffect(() => {
     async function loadSavedObstacles() {
@@ -290,6 +299,7 @@ export default function Index() {
 
   return (
     <ScrollView
+      keyboardShouldPersistTaps="handled"
       style={{
         flex: 1,
         backgroundColor: "#f8fafc",
@@ -300,11 +310,8 @@ export default function Index() {
       }}
     >
       <AppHeaderCard totalLength={headerTotalLength} />
-
       <HowToUseCard />
-
       <SafetyDisclaimerCard />
-
       {isEditingRigSetup ? (
         <>
           <RigSetupCard
@@ -367,19 +374,16 @@ export default function Index() {
           onEditSetup={startEditingRigSetup}
         />
       )}
-
       <ParkingTypeSelector
         parkingType={parkingType}
         selectParkingType={selectParkingType}
       />
-
       {parkingType === "back-in" ? (
         <CampsiteSetupCard
           campsiteType={campsiteType}
           setCampsiteType={setCampsiteType}
         />
       ) : null}
-
       <SiteObstacleSelector obstacles={obstacles} setObstacles={setObstacles} />
       <SetupReviewCard
         parkingType={parkingType}
@@ -388,7 +392,6 @@ export default function Index() {
         campsiteType={campsiteType}
         obstacles={obstacles}
       />
-
       {obstacleWarnings.length > 0 ? (
         <View
           style={{
@@ -425,7 +428,6 @@ export default function Index() {
           </Text>
         </View>
       ) : null}
-
       <CurrentCoachModeCard
         parkingType={parkingType}
         backingSide={backingSide}
@@ -433,12 +435,16 @@ export default function Index() {
         obstacles={obstacles}
         scenario={scenario}
       />
-
       <ReadyToBackChecklistCard
         parkingType={parkingType}
         obstacles={obstacles}
       />
-
+      <ObstacleDistanceInputCard
+        parkingType={parkingType}
+        obstacles={obstacles}
+        clearanceValues={clearanceValues}
+        onChangeClearanceValues={setClearanceValues}
+      />
       <GuidanceCard
         currentStep={currentStep}
         stepIndex={safeStepIndex}
@@ -453,8 +459,8 @@ export default function Index() {
         obstacles={obstacles}
         campsiteType={campsiteType}
         parkingType={parkingType}
+        clearanceValues={clearanceValues}
       />
-
       <AppFooterDisclaimer />
     </ScrollView>
   );

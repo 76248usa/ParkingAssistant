@@ -5,8 +5,11 @@ import * as Speech from "expo-speech";
 import { useEffect, useRef, useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { GuidanceStep, ParkingType } from "../constants/parkingGuidance";
+import { ClearanceValues } from "../types/clearance";
+import { ClearanceItem, parseDistance } from "../utils/clearanceWarnings";
 import { CampsiteType } from "./CampsiteSetupCard";
 import { CompactRigStatusRow } from "./CompactRigStatusRow";
+import { DistanceWarningSummaryCard } from "./DistanceWarningSummaryCard";
 import { GetOutAndLookCard } from "./GetOutAndLookCard";
 import { ParkingDiagram } from "./ParkingDiagram";
 import { PracticeSession } from "./PracticeHistoryCard";
@@ -40,6 +43,7 @@ type Props = {
   obstacles: SiteObstacle[];
   campsiteType: CampsiteType;
   parkingType: ParkingType;
+  clearanceValues: ClearanceValues;
 };
 
 export function GuidanceCard({
@@ -56,6 +60,7 @@ export function GuidanceCard({
   setScenario,
   obstacles,
   campsiteType,
+  clearanceValues,
 }: Props) {
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [practiceAction, setPracticeAction] = useState<PracticeAction>("idle");
@@ -81,7 +86,6 @@ export function GuidanceCard({
     recoveryCompletions: 0,
   });
 
-  const [drivingView, setDrivingView] = useState(false);
   const hasSpokenAutoStopRef = useRef(false);
   const hasSpokenRecoveryCompleteRef = useRef(false);
   const hasSpokenResumeBackingRef = useRef(false);
@@ -113,6 +117,29 @@ export function GuidanceCard({
   const voicePrompt =
     currentStep.voicePrompt ??
     `${fallbackSteeringGuidance}. ${currentStep.title}`;
+
+  const clearanceItems: ClearanceItem[] = [
+    {
+      key: "left",
+      label: "Left side clearance",
+      value: parseDistance(clearanceValues.left),
+    },
+    {
+      key: "right",
+      label: "Right side clearance",
+      value: parseDistance(clearanceValues.right),
+    },
+    {
+      key: "rear",
+      label: "Rear clearance",
+      value: parseDistance(clearanceValues.rear),
+    },
+    {
+      key: "roof",
+      label: "Roof / branch clearance",
+      value: parseDistance(clearanceValues.roof),
+    },
+  ];
 
   function getDriverSteeringGuidance() {
     const guidanceText =
@@ -770,6 +797,7 @@ export function GuidanceCard({
       <Text style={{ fontSize: 12, fontWeight: "bold", color: "#0e7490" }}>
         STEP {stepIndex + 1} OF {totalSteps}
       </Text>
+
       <View
         style={{
           marginTop: 12,
@@ -790,600 +818,222 @@ export function GuidanceCard({
           {steeringGuidance}
         </Text>
       </View>
-      <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
-        <TouchableOpacity
-          onPress={goBack}
-          disabled={stepIndex === 0}
+
+      <View>
+        <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
+          <TouchableOpacity
+            onPress={goBack}
+            disabled={stepIndex === 0}
+            style={{
+              flex: 1,
+              padding: 14,
+              borderRadius: 10,
+              borderWidth: 1,
+              borderColor: "#ccc",
+              backgroundColor: stepIndex === 0 ? "#f1f5f9" : "white",
+              opacity: stepIndex === 0 ? 0.5 : 1,
+            }}
+          >
+            <Text style={{ textAlign: "center", fontWeight: "bold" }}>
+              Back
+            </Text>
+          </TouchableOpacity>
+
+          {stepIndex === totalSteps - 1 ? (
+            <TouchableOpacity
+              onPress={() => {
+                restartPractice();
+                resetSimulation();
+              }}
+              style={{
+                flex: 1,
+                padding: 14,
+                borderRadius: 10,
+                backgroundColor: "#16a34a",
+              }}
+            >
+              <Text
+                style={{
+                  textAlign: "center",
+                  fontWeight: "bold",
+                  color: "white",
+                }}
+              >
+                🔄 Restart
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              onPress={goNext}
+              style={{
+                flex: 1,
+                padding: 14,
+                borderRadius: 10,
+                backgroundColor: "#0891b2",
+              }}
+            >
+              <Text
+                style={{
+                  textAlign: "center",
+                  fontWeight: "bold",
+                  color: "white",
+                }}
+              >
+                Next
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
+          {(["left", "right"] as const).map((side) => {
+            const selected = backingSide === side;
+
+            return (
+              <TouchableOpacity
+                key={side}
+                onPress={() => {
+                  setBackingSide(side);
+                  saveRigSettings({ backingSide: side, scenario });
+                  setMovementTrail([]);
+                  setIsRecoveringFromJackknife(false);
+                  resetSafetyFlags();
+                }}
+                style={{
+                  flex: 1,
+                  padding: 12,
+                  borderRadius: 12,
+                  backgroundColor: selected ? "#0f172a" : "white",
+                  borderWidth: 1,
+                  borderColor: selected ? "#0f172a" : "#cbd5e1",
+                }}
+              >
+                <Text
+                  style={{
+                    textAlign: "center",
+                    fontWeight: "900",
+                    color: selected ? "white" : "#0f172a",
+                    fontSize: 12,
+                  }}
+                >
+                  {side === "left" ? "Left-side" : "Right-side"}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
+          {(["easy", "normal", "tight"] as const).map((item) => {
+            const selected = scenario === item;
+
+            return (
+              <TouchableOpacity
+                key={item}
+                onPress={() => {
+                  setScenario(item);
+                  saveRigSettings({ backingSide, scenario: item });
+                  setMovementTrail([]);
+                  setIsRecoveringFromJackknife(false);
+                  resetSafetyFlags();
+                }}
+                style={{
+                  flex: 1,
+                  padding: 10,
+                  borderRadius: 12,
+                  backgroundColor: selected ? "#7c3aed" : "white",
+                  borderWidth: 1,
+                  borderColor: selected ? "#7c3aed" : "#cbd5e1",
+                }}
+              >
+                <Text
+                  style={{
+                    textAlign: "center",
+                    fontWeight: "900",
+                    color: selected ? "white" : "#0f172a",
+                    fontSize: 12,
+                  }}
+                >
+                  {item === "easy"
+                    ? "Easy"
+                    : item === "normal"
+                      ? "Normal"
+                      : "Tight"}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <Text
           style={{
-            flex: 1,
-            padding: 14,
-            borderRadius: 10,
-            borderWidth: 1,
-            borderColor: "#ccc",
-            backgroundColor: stepIndex === 0 ? "#f1f5f9" : "white",
-            opacity: stepIndex === 0 ? 0.5 : 1,
+            marginTop: 8,
+            textAlign: "center",
+            color:
+              scenario === "tight"
+                ? "#dc2626"
+                : scenario === "easy"
+                  ? "#16a34a"
+                  : "#475569",
+            fontWeight: "800",
+            fontSize: 12,
           }}
         >
-          <Text style={{ textAlign: "center", fontWeight: "bold" }}>Back</Text>
-        </TouchableOpacity>
+          {scenario === "easy"
+            ? "Wide practice site — forgiving setup"
+            : scenario === "tight"
+              ? "Tight site — use smaller steering corrections"
+              : "Normal practice site"}
+        </Text>
 
-        {stepIndex === totalSteps - 1 ? (
+        <SteeringWheel
+          steeringAngle={displaySteeringAngle}
+          label={steeringLabel}
+        />
+
+        <CompactRigStatusRow
+          steeringAngle={displaySteeringAngle}
+          truckAngle={simulatedTruckAngle}
+          trailerAngle={simulatedTrailerAngle}
+          scenario={scenario}
+        />
+
+        <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
           <TouchableOpacity
             onPress={() => {
-              restartPractice();
-              resetSimulation();
-              //setShowControlPad(false);
+              Speech.stop();
+              setVoiceEnabled((current) => !current);
             }}
             style={{
               flex: 1,
-              padding: 14,
-              borderRadius: 10,
-              backgroundColor: "#16a34a",
-            }}
-          >
-            <Text
-              style={{
-                textAlign: "center",
-                fontWeight: "bold",
-                color: "white",
-              }}
-            >
-              🔄 Restart
-            </Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            onPress={goNext}
-            style={{
-              flex: 1,
-              padding: 14,
-              borderRadius: 10,
-              backgroundColor: "#0891b2",
-            }}
-          >
-            <Text
-              style={{
-                textAlign: "center",
-                fontWeight: "bold",
-                color: "white",
-              }}
-            >
-              Next
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
-      <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
-        {(["left", "right"] as const).map((side) => {
-          const selected = backingSide === side;
-
-          return (
-            <TouchableOpacity
-              key={side}
-              onPress={() => {
-                setBackingSide(side);
-                saveRigSettings({
-                  backingSide: side,
-                  scenario,
-                });
-
-                setMovementTrail([]);
-                setIsRecoveringFromJackknife(false);
-                resetSafetyFlags();
-              }}
-              style={{
-                flex: 1,
-                padding: 12,
-                borderRadius: 12,
-                backgroundColor: selected ? "#0f172a" : "white",
-                borderWidth: 1,
-                borderColor: selected ? "#0f172a" : "#cbd5e1",
-              }}
-            >
-              <Text
-                style={{
-                  textAlign: "center",
-                  fontWeight: "900",
-                  color: selected ? "white" : "#0f172a",
-                  fontSize: 12,
-                }}
-              >
-                {side === "left" ? "Left-side" : "Right-side"}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-      <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
-        {(["easy", "normal", "tight"] as const).map((item) => {
-          const selected = scenario === item;
-
-          return (
-            <TouchableOpacity
-              key={item}
-              onPress={() => {
-                setScenario(item);
-                saveRigSettings({
-                  backingSide,
-                  scenario: item,
-                });
-
-                setMovementTrail([]);
-                setIsRecoveringFromJackknife(false);
-                resetSafetyFlags();
-              }}
-              style={{
-                flex: 1,
-                padding: 10,
-                borderRadius: 12,
-                backgroundColor: selected ? "#7c3aed" : "white",
-                borderWidth: 1,
-                borderColor: selected ? "#7c3aed" : "#cbd5e1",
-              }}
-            >
-              <Text
-                style={{
-                  textAlign: "center",
-                  fontWeight: "900",
-                  color: selected ? "white" : "#0f172a",
-                  fontSize: 12,
-                }}
-              >
-                {item === "easy"
-                  ? "Easy"
-                  : item === "normal"
-                    ? "Normal"
-                    : "Tight"}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-      <Text
-        style={{
-          marginTop: 8,
-          textAlign: "center",
-          color:
-            scenario === "tight"
-              ? "#dc2626"
-              : scenario === "easy"
-                ? "#16a34a"
-                : "#475569",
-          fontWeight: "800",
-          fontSize: 12,
-        }}
-      >
-        {scenario === "easy"
-          ? "Wide practice site — forgiving setup"
-          : scenario === "tight"
-            ? "Tight site — use smaller steering corrections"
-            : "Normal practice site"}
-      </Text>
-      <SteeringWheel
-        steeringAngle={displaySteeringAngle}
-        label={steeringLabel}
-      />
-      <CompactRigStatusRow
-        steeringAngle={displaySteeringAngle}
-        truckAngle={simulatedTruckAngle}
-        trailerAngle={simulatedTrailerAngle}
-        scenario={scenario}
-      />
-      {/* <View
-        style={{
-          marginTop: 12,
-          padding: 12,
-          borderRadius: 12,
-          backgroundColor: feedbackColor,
-        }}
-      >
-        <Text
-          style={{
-            color: "white",
-            textAlign: "center",
-            fontWeight: "900",
-            fontSize: 16,
-          }}
-        >
-          {trainingFeedback}
-        </Text>
-      </View> */}
-      <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
-        <TouchableOpacity
-          onPress={() => {
-            Speech.stop();
-            setVoiceEnabled((current) => !current);
-          }}
-          style={{
-            flex: 1,
-            padding: 12,
-            borderRadius: 12,
-            backgroundColor: voiceEnabled ? "#0f172a" : "#64748b",
-          }}
-        >
-          <Text
-            style={{
-              color: "white",
-              textAlign: "center",
-              fontWeight: "900",
-              fontSize: 12,
-            }}
-          >
-            {voiceEnabled ? "🔊 Voice On" : "🔇 Voice Off"}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => {
-            Speech.stop();
-            Speech.speak(voicePrompt, {
-              language: "en-US",
-              rate: 0.9,
-              pitch: 1.0,
-            });
-          }}
-          style={{
-            flex: 1,
-            padding: 12,
-            borderRadius: 12,
-            backgroundColor: "#0f172a",
-          }}
-        >
-          <Text
-            style={{
-              color: "white",
-              textAlign: "center",
-              fontWeight: "900",
-              fontSize: 12,
-            }}
-          >
-            🔁 Repeat
-          </Text>
-        </TouchableOpacity>
-      </View>
-      <Text
-        style={{
-          marginTop: 12,
-          fontSize: 22,
-          fontWeight: "bold",
-          color: "#0f172a",
-        }}
-      >
-        {currentStep.title}
-      </Text>
-      <Text style={{ marginTop: 10, fontSize: 16, lineHeight: 23 }}>
-        {currentStep.instruction}
-      </Text>
-      {currentStep.warning ? (
-        <View
-          style={{
-            marginTop: 12,
-            padding: 12,
-            borderRadius: 12,
-            backgroundColor: "#fff7ed",
-            borderWidth: 1,
-            borderColor: "#fed7aa",
-          }}
-        >
-          <Text style={{ color: "#9a3412", fontWeight: "bold" }}>
-            ⚠️ {currentStep.warning}
-          </Text>
-        </View>
-      ) : null}
-
-      <TouchableOpacity
-        onPress={() => setDrivingView((current) => !current)}
-        activeOpacity={0.85}
-        style={{
-          marginTop: 12,
-          paddingVertical: 10,
-          paddingHorizontal: 14,
-          borderRadius: 999,
-          backgroundColor: drivingView ? "#0f172a" : "#e2e8f0",
-          alignSelf: "center",
-        }}
-      >
-        <Text
-          style={{
-            color: drivingView ? "white" : "#0f172a",
-            fontSize: 13,
-            fontWeight: "900",
-          }}
-        >
-          {drivingView ? "Exit Driving View" : "Open Driving View"}
-        </Text>
-      </TouchableOpacity>
-      <ParkingDiagram
-        stepIndex={stepIndex}
-        backingSide={backingSide}
-        campsiteType={campsiteType}
-        simulatedTruckAngle={simulatedTruckAngle}
-        simulatedTrailerAngle={simulatedTrailerAngle}
-        movementTrail={movementTrail}
-        obstacles={obstacles}
-        parkingType={parkingType}
-        drivingView={drivingView}
-      />
-      <GetOutAndLookCard
-        parkingType={parkingType}
-        stepIndex={stepIndex}
-        obstacles={obstacles}
-      />
-      <SmartNextMoveCard
-        stepIndex={stepIndex}
-        backingSide={backingSide}
-        campsiteType={campsiteType}
-        obstacles={obstacles}
-        scenario={scenario}
-        voiceEnabled={voiceEnabled}
-        parkingType={parkingType}
-      />
-      <RecoveryCoachCard
-        backingSide={backingSide}
-        obstacles={obstacles}
-        voiceEnabled={voiceEnabled}
-        campsiteType={campsiteType}
-      />
-
-      {jackknifeAutoStopActive ? (
-        <View
-          style={{
-            marginTop: 12,
-            padding: 12,
-            borderRadius: 14,
-            backgroundColor: "#fee2e2",
-            borderWidth: 1,
-            borderColor: "#ef4444",
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 16,
-              fontWeight: "900",
-              color: "#991b1b",
-              textAlign: "center",
-            }}
-          >
-            🛑 Jackknife Prevention Auto Stop
-          </Text>
-
-          <Text
-            style={{
-              marginTop: 6,
-              fontSize: 13,
-              fontWeight: "700",
-              color: "#7f1d1d",
-              textAlign: "center",
-              lineHeight: 18,
-            }}
-          >
-            Trailer angle is too sharp. Stop backing and pull forward to
-            straighten the rig.
-          </Text>
-        </View>
-      ) : null}
-      {recoveryComplete ? (
-        <View
-          style={{
-            marginTop: 10,
-            padding: 12,
-            borderRadius: 14,
-            backgroundColor: "#dcfce7",
-            borderWidth: 1,
-            borderColor: "#22c55e",
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 16,
-              fontWeight: "900",
-              color: "#14532d",
-              textAlign: "center",
-            }}
-          >
-            ✅ Recovery Complete
-          </Text>
-
-          <Text
-            style={{
-              marginTop: 6,
-              fontSize: 13,
-              fontWeight: "700",
-              color: "#14532d",
-              textAlign: "center",
-              lineHeight: 18,
-            }}
-          >
-            Trailer angle is safe again. Straighten the wheel, check both
-            mirrors, and resume backing slowly.
-          </Text>
-        </View>
-      ) : null}
-      {showResumeBackingCoaching ? (
-        <View
-          style={{
-            marginTop: 10,
-            padding: 12,
-            borderRadius: 14,
-            backgroundColor: "#e0f2fe",
-            borderWidth: 1,
-            borderColor: "#38bdf8",
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 16,
-              fontWeight: "900",
-              color: "#075985",
-              textAlign: "center",
-            }}
-          >
-            🔁 Resume Backing Slowly
-          </Text>
-
-          <Text
-            style={{
-              marginTop: 6,
-              fontSize: 13,
-              fontWeight: "700",
-              color: "#075985",
-              textAlign: "center",
-              lineHeight: 18,
-            }}
-          >
-            Trailer angle is safe again. Straighten the wheel, check both
-            mirrors, and back up slowly with small steering corrections.
-          </Text>
-
-          <View
-            style={{
-              marginTop: 10,
-              padding: 10,
+              padding: 12,
               borderRadius: 12,
-              backgroundColor: "white",
-              borderWidth: 1,
-              borderColor: "#bae6fd",
+              backgroundColor: voiceEnabled ? "#0f172a" : "#64748b",
             }}
           >
             <Text
               style={{
+                color: "white",
+                textAlign: "center",
+                fontWeight: "900",
                 fontSize: 12,
-                fontWeight: "900",
-                color: "#0f172a",
-                textAlign: "center",
-                lineHeight: 17,
               }}
             >
-              Next action: tap Back up only after the steering wheel is close to
-              straight.
-            </Text>
-          </View>
-        </View>
-      ) : null}
-      {lastVoiceMessage ? (
-        <View
-          style={{
-            marginTop: 10,
-            padding: 10,
-            borderRadius: 12,
-            backgroundColor: "#f8fafc",
-            borderWidth: 1,
-            borderColor: "#cbd5e1",
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 12,
-              fontWeight: "900",
-              color: "#334155",
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-            }}
-          >
-            Last Voice Coaching
-          </Text>
-
-          <Text
-            style={{
-              marginTop: 5,
-              fontSize: 13,
-              fontWeight: "700",
-              color: "#0f172a",
-              lineHeight: 18,
-            }}
-          >
-            {lastVoiceMessage}
-          </Text>
-
-          <TouchableOpacity
-            onPress={repeatLastSafetyMessage}
-            style={{
-              marginTop: 10,
-              paddingVertical: 10,
-              paddingHorizontal: 10,
-              borderRadius: 12,
-              backgroundColor: "#0f172a",
-            }}
-          >
-            <Text
-              style={{
-                color: "white",
-                textAlign: "center",
-                fontSize: 13,
-                fontWeight: "900",
-              }}
-            >
-              🔁 Repeat Safety Coaching
+              {voiceEnabled ? "🔊 Voice On" : "🔇 Voice Off"}
             </Text>
           </TouchableOpacity>
-        </View>
-      ) : null}
-      {/* <AutoCoachingBanner
-        stepIndex={stepIndex}
-        backingSide={backingSide}
-        scenario={scenario}
-        obstacles={obstacles}
-        trailerAngle={simulatedTrailerAngle}
-        steeringAngle={displaySteeringAngle}
-        practiceAction={practiceAction}
-      /> */}
-      {/* 
 
-      {showControlPad ? (
-        <View
-          style={{
-            marginTop: 12,
-            padding: 12,
-            borderRadius: 16,
-            backgroundColor: "#f8fafc",
-            borderWidth: 1,
-            borderColor: "#cbd5e1",
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 12,
-              fontWeight: "900",
-              color: "#334155",
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
+          <TouchableOpacity
+            onPress={() => {
+              Speech.stop();
+              Speech.speak(voicePrompt, {
+                language: "en-US",
+                rate: 0.9,
+                pitch: 1.0,
+              });
             }}
-          >
-            Practice Control Pad
-          </Text>
-
-          <Text
             style={{
-              marginTop: 6,
-              fontSize: 14,
-              fontWeight: "800",
-              color: "#0f172a",
-              lineHeight: 19,
-            }}
-          >
-            Use these controls to practice this step. Then return to the
-            simulator to review the rig position.
-          </Text>
-
-          <StepCompletionHintCard
-            stepIndex={stepIndex}
-            totalSteps={totalSteps}
-            jackknifeAutoStopActive={jackknifeAutoStopActive}
-            isRecoveringFromJackknife={isRecoveringFromJackknife}
-            recoveryComplete={recoveryComplete}
-            onNextStep={goNext}
-          /> */}
-      {/* <PracticeModeControls
-            practiceAction={practiceAction}
-            onPracticeAction={handlePracticeAction}
-            jackknifeAutoStopActive={jackknifeAutoStopActive}
-            onResetSimulation={resetSimulation}
-            backingSide={backingSide}
-          /> */}
-      {/* <TouchableOpacity
-            onPress={() => setShowControlPad(false)}
-            style={{
-              marginTop: 12,
+              flex: 1,
               padding: 12,
               borderRadius: 12,
               backgroundColor: "#0f172a",
@@ -1393,96 +1043,284 @@ export function GuidanceCard({
               style={{
                 color: "white",
                 textAlign: "center",
-                fontSize: 14,
                 fontWeight: "900",
+                fontSize: 12,
               }}
             >
-              ← Back to Simulator View
+              🔁 Repeat
             </Text>
-          </TouchableOpacity> */}
-      {/* </View>
-      ) : null} */}
-      {/* <TouchableOpacity
-        onPress={startNewSession}
-        style={{
-          marginTop: 10,
-          padding: 12,
-          borderRadius: 12,
-          backgroundColor: "#0f172a",
-          borderWidth: 1,
-          borderColor: "#0f172a",
-        }}
-      >
+          </TouchableOpacity>
+        </View>
+
         <Text
           style={{
-            color: "white",
-            textAlign: "center",
-            fontWeight: "900",
-            fontSize: 13,
+            marginTop: 12,
+            fontSize: 22,
+            fontWeight: "bold",
+            color: "#0f172a",
           }}
         >
-          🆕 Start New Session
+          {currentStep.title}
         </Text>
-      </TouchableOpacity> */}
-      {/* {hasStartedPractice ||
-      jackknifeAutoStopActive ||
-      isRecoveringFromJackknife ? (
-        <CompactLiveCoachCard
-          stepIndex={stepIndex}
-          backingSide={backingSide}
-          scenario={scenario}
-          obstacles={obstacles}
-          trailerAngle={simulatedTrailerAngle}
-          steeringAngle={displaySteeringAngle}
-          practiceAction={practiceAction}
-          jackknifeAutoStopActive={jackknifeAutoStopActive}
-          isRecoveringFromJackknife={isRecoveringFromJackknife}
-        />
-      ) : null} */}
-      {/* <SimulatorStatusCard
-        practiceAction={practiceAction}
-        simulatedSteeringAngle={displaySteeringAngle}
-        simulatedTruckAngle={simulatedTruckAngle}
-        simulatedTrailerAngle={simulatedTrailerAngle}
-        scenario={scenario}
-      />  */}
-      {/* {practiceSessions.length > 0 ? (
-        <TouchableOpacity
-          onPress={clearPracticeHistory}
-          style={{
-            marginTop: 8,
-            padding: 10,
-            borderRadius: 12,
-            backgroundColor: "#fee2e2",
-            borderWidth: 1,
-            borderColor: "#fecaca",
-          }}
-        >
-          <Text
+
+        <Text style={{ marginTop: 10, fontSize: 16, lineHeight: 23 }}>
+          {currentStep.instruction}
+        </Text>
+
+        {currentStep.warning ? (
+          <View
             style={{
-              color: "#991b1b",
-              textAlign: "center",
-              fontWeight: "900",
-              fontSize: 12,
+              marginTop: 12,
+              padding: 12,
+              borderRadius: 12,
+              backgroundColor: "#fff7ed",
+              borderWidth: 1,
+              borderColor: "#fed7aa",
             }}
           >
-            Clear Practice History
-          </Text>
-        </TouchableOpacity>
-      ) : null} */}
-      {/* <PracticeResultsSection
-        stepIndex={stepIndex}
-        totalSteps={totalSteps}
-        steeringAngle={simulatedSteeringAngle}
-        truckAngle={simulatedTruckAngle}
-        trailerAngle={simulatedTrailerAngle}
-        scenario={scenario}
-        backingSide={backingSide}
-        sessionStats={sessionStats}
-        practiceSessions={practiceSessions}
-        restartPractice={restartPractice}
-        clearPracticeHistory={clearPracticeHistory}
-      /> */}
+            <Text style={{ color: "#9a3412", fontWeight: "bold" }}>
+              ⚠️ {currentStep.warning}
+            </Text>
+          </View>
+        ) : null}
+
+        <ParkingDiagram
+          stepIndex={stepIndex}
+          backingSide={backingSide}
+          campsiteType={campsiteType}
+          simulatedTruckAngle={simulatedTruckAngle}
+          simulatedTrailerAngle={simulatedTrailerAngle}
+          movementTrail={movementTrail}
+          obstacles={obstacles}
+          parkingType={parkingType}
+        />
+
+        <DistanceWarningSummaryCard
+          clearanceItems={clearanceItems}
+          compact={true}
+          showVoiceButton={false}
+        />
+
+        <GetOutAndLookCard
+          parkingType={parkingType}
+          stepIndex={stepIndex}
+          obstacles={obstacles}
+        />
+
+        <SmartNextMoveCard
+          stepIndex={stepIndex}
+          backingSide={backingSide}
+          campsiteType={campsiteType}
+          obstacles={obstacles}
+          scenario={scenario}
+          voiceEnabled={voiceEnabled}
+          parkingType={parkingType}
+        />
+
+        <RecoveryCoachCard
+          backingSide={backingSide}
+          obstacles={obstacles}
+          voiceEnabled={voiceEnabled}
+          campsiteType={campsiteType}
+        />
+
+        {jackknifeAutoStopActive ? (
+          <View
+            style={{
+              marginTop: 12,
+              padding: 12,
+              borderRadius: 14,
+              backgroundColor: "#fee2e2",
+              borderWidth: 1,
+              borderColor: "#ef4444",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: "900",
+                color: "#991b1b",
+                textAlign: "center",
+              }}
+            >
+              🛑 Jackknife Prevention Auto Stop
+            </Text>
+
+            <Text
+              style={{
+                marginTop: 6,
+                fontSize: 13,
+                fontWeight: "700",
+                color: "#7f1d1d",
+                textAlign: "center",
+                lineHeight: 18,
+              }}
+            >
+              Trailer angle is too sharp. Stop backing and pull forward to
+              straighten the rig.
+            </Text>
+          </View>
+        ) : null}
+
+        {recoveryComplete ? (
+          <View
+            style={{
+              marginTop: 10,
+              padding: 12,
+              borderRadius: 14,
+              backgroundColor: "#dcfce7",
+              borderWidth: 1,
+              borderColor: "#22c55e",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: "900",
+                color: "#14532d",
+                textAlign: "center",
+              }}
+            >
+              ✅ Recovery Complete
+            </Text>
+
+            <Text
+              style={{
+                marginTop: 6,
+                fontSize: 13,
+                fontWeight: "700",
+                color: "#14532d",
+                textAlign: "center",
+                lineHeight: 18,
+              }}
+            >
+              Trailer angle is safe again. Straighten the wheel, check both
+              mirrors, and resume backing slowly.
+            </Text>
+          </View>
+        ) : null}
+
+        {showResumeBackingCoaching ? (
+          <View
+            style={{
+              marginTop: 10,
+              padding: 12,
+              borderRadius: 14,
+              backgroundColor: "#e0f2fe",
+              borderWidth: 1,
+              borderColor: "#38bdf8",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: "900",
+                color: "#075985",
+                textAlign: "center",
+              }}
+            >
+              🔁 Resume Backing Slowly
+            </Text>
+
+            <Text
+              style={{
+                marginTop: 6,
+                fontSize: 13,
+                fontWeight: "700",
+                color: "#075985",
+                textAlign: "center",
+                lineHeight: 18,
+              }}
+            >
+              Trailer angle is safe again. Straighten the wheel, check both
+              mirrors, and back up slowly with small steering corrections.
+            </Text>
+
+            <View
+              style={{
+                marginTop: 10,
+                padding: 10,
+                borderRadius: 12,
+                backgroundColor: "white",
+                borderWidth: 1,
+                borderColor: "#bae6fd",
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: "900",
+                  color: "#0f172a",
+                  textAlign: "center",
+                  lineHeight: 17,
+                }}
+              >
+                Next action: tap Back up only after the steering wheel is close
+                to straight.
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
+        {lastVoiceMessage ? (
+          <View
+            style={{
+              marginTop: 10,
+              padding: 10,
+              borderRadius: 12,
+              backgroundColor: "#f8fafc",
+              borderWidth: 1,
+              borderColor: "#cbd5e1",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: "900",
+                color: "#334155",
+                textTransform: "uppercase",
+                letterSpacing: 0.5,
+              }}
+            >
+              Last Voice Coaching
+            </Text>
+
+            <Text
+              style={{
+                marginTop: 5,
+                fontSize: 13,
+                fontWeight: "700",
+                color: "#0f172a",
+                lineHeight: 18,
+              }}
+            >
+              {lastVoiceMessage}
+            </Text>
+
+            <TouchableOpacity
+              onPress={repeatLastSafetyMessage}
+              style={{
+                marginTop: 10,
+                paddingVertical: 10,
+                paddingHorizontal: 10,
+                borderRadius: 12,
+                backgroundColor: "#0f172a",
+              }}
+            >
+              <Text
+                style={{
+                  color: "white",
+                  textAlign: "center",
+                  fontSize: 13,
+                  fontWeight: "900",
+                }}
+              >
+                🔁 Repeat Safety Coaching
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }

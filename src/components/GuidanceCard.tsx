@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { GuidanceStep, ParkingType } from "../constants/parkingGuidance";
 import { ClearanceValues } from "../types/clearance";
+import { DistanceSource } from "../types/lidar";
 import { ClearanceItem, parseDistance } from "../utils/clearanceWarnings";
 import { CampsiteType } from "./CampsiteSetupCard";
 import { CompactRigStatusRow } from "./CompactRigStatusRow";
@@ -44,6 +45,7 @@ type Props = {
   campsiteType: CampsiteType;
   parkingType: ParkingType;
   clearanceValues: ClearanceValues;
+  distanceSource: DistanceSource;
 };
 
 export function GuidanceCard({
@@ -61,6 +63,7 @@ export function GuidanceCard({
   obstacles,
   campsiteType,
   clearanceValues,
+  distanceSource,
 }: Props) {
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [practiceAction, setPracticeAction] = useState<PracticeAction>("idle");
@@ -1106,6 +1109,7 @@ export function GuidanceCard({
             clearanceItems={clearanceItems}
             compact={true}
             showVoiceButton={false}
+            distanceSource={distanceSource}
           />
         ) : null}
         <GetOutAndLookCard
@@ -1123,6 +1127,7 @@ export function GuidanceCard({
           voiceEnabled={voiceEnabled}
           parkingType={parkingType}
           clearanceValues={clearanceValues}
+          distanceSource={distanceSource}
         />
 
         <RecoveryCoachCard

@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { ParkingType } from "../constants/parkingGuidance";
 import { ClearanceValues } from "../types/clearance";
+import { DistanceSource } from "../types/lidar";
 import {
   ClearanceItem,
   getClearanceLevel,
@@ -20,6 +21,7 @@ type Props = {
   obstacles: SiteObstacle[];
   clearanceValues: ClearanceValues;
   onChangeClearanceValues: (values: ClearanceValues) => void;
+  distanceSource: DistanceSource;
 };
 
 export function ObstacleDistanceInputCard({
@@ -27,6 +29,7 @@ export function ObstacleDistanceInputCard({
   obstacles,
   clearanceValues,
   onChangeClearanceValues,
+  distanceSource,
 }: Props) {
   const [expanded, setExpanded] = useState(true);
   const lastAutoSpokenStopReasonRef = useRef<string | null>(null);
@@ -215,7 +218,10 @@ export function ObstacleDistanceInputCard({
 
       {expanded ? (
         <>
-          <DistanceWarningSummaryCard clearanceItems={clearanceItems} />
+          <DistanceWarningSummaryCard
+            clearanceItems={clearanceItems}
+            distanceSource={distanceSource}
+          />
           <TouchableOpacity
             onPress={async () => {
               setAutoVoiceAlertsEnabled((current) => {

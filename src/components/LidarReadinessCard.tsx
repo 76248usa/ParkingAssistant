@@ -1,36 +1,59 @@
 import React, { useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { ClearanceValues } from "../types/clearance";
-import { LidarClearanceReading } from "../types/lidar";
-import { lidarReadingToClearanceValues } from "../utils/lidarToClearanceValues";
+import { DistanceSource, LidarClearanceReading } from "../types/lidar";
 
+import { lidarReadingToClearanceValues } from "../utils/lidarToClearanceValues";
 type Props = {
   manualModeActive?: boolean;
+  distanceSource: DistanceSource;
   onApplyTestReading?: (values: ClearanceValues) => void;
+
+  onClearTestReading?: () => void;
 };
 
 type ChecklistStatus = "done" | "current" | "future";
 
 export function LidarReadinessCard({
   manualModeActive = true,
+  distanceSource,
   onApplyTestReading,
+  onClearTestReading,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
-  const applyTestLidarReading = () => {
-    const testReading: LidarClearanceReading = {
-      left: 42,
-      right: 30,
-      rear: 12,
-      roof: 48,
-      source: "lidar",
-      timestamp: Date.now(),
-    };
+  const applyTestLidarReading = (readingType: "safe" | "caution" | "stop") => {
+    const testReading: LidarClearanceReading =
+      readingType === "safe"
+        ? {
+            left: 60,
+            right: 54,
+            rear: 48,
+            roof: 72,
+            source: "lidar",
+            timestamp: Date.now(),
+          }
+        : readingType === "caution"
+          ? {
+              left: 42,
+              right: 30,
+              rear: 40,
+              roof: 60,
+              source: "lidar",
+              timestamp: Date.now(),
+            }
+          : {
+              left: 42,
+              right: 30,
+              rear: 12,
+              roof: 48,
+              source: "lidar",
+              timestamp: Date.now(),
+            };
 
     const values = lidarReadingToClearanceValues(testReading);
 
     onApplyTestReading?.(values);
   };
-
   return (
     <View
       style={{
@@ -80,6 +103,32 @@ export function LidarReadinessCard({
                 ? "Manual distance mode is active. The app is now prepared for future LiDAR readings."
                 : "LiDAR distance assist placeholder."}
             </Text>
+            <View
+              style={{
+                alignSelf: "flex-start",
+                marginTop: 8,
+                paddingVertical: 4,
+                paddingHorizontal: 8,
+                borderRadius: 999,
+                backgroundColor:
+                  distanceSource === "lidar" ? "#ecfeff" : "#f1f5f9",
+                borderWidth: 1,
+                borderColor: distanceSource === "lidar" ? "#06b6d4" : "#cbd5e1",
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: "900",
+                  color: distanceSource === "lidar" ? "#0e7490" : "#475569",
+                }}
+              >
+                Distance Source:{" "}
+                {distanceSource === "lidar"
+                  ? "Test LiDAR Reading"
+                  : "Manual Entry"}
+              </Text>
+            </View>
           </View>
 
           <Text
@@ -131,30 +180,130 @@ export function LidarReadinessCard({
               update those same distance values automatically.
             </Text>
           </View>
+          <View style={{ marginTop: 12, gap: 8 }}>
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: "900",
+                color: "#0f172a",
+                textTransform: "uppercase",
+                letterSpacing: 0.4,
+                textAlign: "center",
+              }}
+            >
+              Test LiDAR Readings
+            </Text>
 
+            <TouchableOpacity
+              onPress={() => applyTestLidarReading("safe")}
+              activeOpacity={0.85}
+              style={{
+                paddingVertical: 11,
+                paddingHorizontal: 12,
+                borderRadius: 12,
+                backgroundColor: "#dcfce7",
+                borderWidth: 1,
+                borderColor: "#22c55e",
+              }}
+            >
+              <Text
+                style={{
+                  color: "#166534",
+                  textAlign: "center",
+                  fontSize: 13,
+                  fontWeight: "900",
+                }}
+              >
+                Test SAFE Reading
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => applyTestLidarReading("caution")}
+              activeOpacity={0.85}
+              style={{
+                paddingVertical: 11,
+                paddingHorizontal: 12,
+                borderRadius: 12,
+                backgroundColor: "#fef9c3",
+                borderWidth: 1,
+                borderColor: "#eab308",
+              }}
+            >
+              <Text
+                style={{
+                  color: "#854d0e",
+                  textAlign: "center",
+                  fontSize: 13,
+                  fontWeight: "900",
+                }}
+              >
+                Test CAUTION Reading
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => applyTestLidarReading("stop")}
+              activeOpacity={0.85}
+              style={{
+                paddingVertical: 11,
+                paddingHorizontal: 12,
+                borderRadius: 12,
+                backgroundColor: "#fee2e2",
+                borderWidth: 1,
+                borderColor: "#ef4444",
+              }}
+            >
+              <Text
+                style={{
+                  color: "#991b1b",
+                  textAlign: "center",
+                  fontSize: 13,
+                  fontWeight: "900",
+                }}
+              >
+                Test STOP Reading
+              </Text>
+            </TouchableOpacity>
+
+            <Text
+              style={{
+                marginTop: 2,
+                fontSize: 11,
+                fontWeight: "700",
+                color: "#64748b",
+                textAlign: "center",
+                lineHeight: 16,
+              }}
+            >
+              SAFE uses all clearances above 36 inches. CAUTION uses right side
+              30 inches. STOP uses rear 12 inches.
+            </Text>
+          </View>
           <TouchableOpacity
-            onPress={applyTestLidarReading}
+            onPress={onClearTestReading}
             activeOpacity={0.85}
             style={{
-              marginTop: 12,
-              paddingVertical: 11,
+              marginTop: 10,
+              paddingVertical: 10,
               paddingHorizontal: 12,
               borderRadius: 12,
-              backgroundColor: "#0f172a",
+              backgroundColor: "#f8fafc",
+              borderWidth: 1,
+              borderColor: "#cbd5e1",
             }}
           >
             <Text
               style={{
-                color: "white",
+                color: "#334155",
                 textAlign: "center",
                 fontSize: 13,
                 fontWeight: "900",
               }}
             >
-              Test LiDAR Reading
+              Clear Test LiDAR Reading
             </Text>
           </TouchableOpacity>
-
           <Text
             style={{
               marginTop: 6,
@@ -233,7 +382,6 @@ export function LidarReadinessCard({
               />
             </View>
           </View>
-
           <View style={{ marginTop: 12, gap: 8 }}>
             <LidarStatusRow
               label="LiDAR status"
@@ -271,7 +419,6 @@ export function LidarReadinessCard({
               status="manual"
             />
           </View>
-
           <View
             style={{
               marginTop: 12,
@@ -309,7 +456,6 @@ export function LidarReadinessCard({
               keep working without being rewritten.
             </Text>
           </View>
-
           <Text
             style={{
               marginTop: 10,

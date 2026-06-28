@@ -1,6 +1,7 @@
 import * as Speech from "expo-speech";
 import React, { useMemo } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
+import { DistanceSource } from "../types/lidar";
 import {
   ClearanceItem,
   ClearanceLevel,
@@ -14,12 +15,14 @@ type Props = {
   clearanceItems: ClearanceItem[];
   compact?: boolean;
   showVoiceButton?: boolean;
+  distanceSource?: DistanceSource;
 };
 
 export function DistanceWarningSummaryCard({
   clearanceItems,
   compact = false,
   showVoiceButton = true,
+  distanceSource = "manual",
 }: Props) {
   const worstLevel = useMemo<ClearanceLevel>(() => {
     const levels = clearanceItems.map((item) => getClearanceLevel(item.value));
@@ -28,6 +31,9 @@ export function DistanceWarningSummaryCard({
     if (levels.includes("caution")) return "caution";
     return "safe";
   }, [clearanceItems]);
+
+  const distanceSourceLabel =
+    distanceSource === "lidar" ? "Test LiDAR Reading" : "Manual Entry";
 
   const warningReason = useMemo(() => {
     return getSpecificWarningReason(clearanceItems);
@@ -58,6 +64,28 @@ export function DistanceWarningSummaryCard({
         {levelStyles.label}
       </Text>
 
+      <View
+        style={{
+          alignSelf: "flex-start",
+          marginTop: 6,
+          paddingVertical: 3,
+          paddingHorizontal: 8,
+          borderRadius: 999,
+          backgroundColor: distanceSource === "lidar" ? "#ecfeff" : "#f1f5f9",
+          borderWidth: 1,
+          borderColor: distanceSource === "lidar" ? "#06b6d4" : "#cbd5e1",
+        }}
+      >
+        <Text
+          style={{
+            fontSize: 10,
+            fontWeight: "900",
+            color: distanceSource === "lidar" ? "#0e7490" : "#475569",
+          }}
+        >
+          Distance Source: {distanceSourceLabel}
+        </Text>
+      </View>
       {!compact ? (
         <Text
           style={{

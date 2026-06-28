@@ -150,7 +150,8 @@ export default function Index() {
     rear: "",
     roof: "",
   });
-
+  const [distanceSource, setDistanceSource] =
+    useState<DistanceSource>("manual");
   useEffect(() => {
     async function loadSavedObstacles() {
       try {
@@ -440,15 +441,33 @@ export default function Index() {
         parkingType={parkingType}
         obstacles={obstacles}
       />
+
       <ObstacleDistanceInputCard
         parkingType={parkingType}
         obstacles={obstacles}
         clearanceValues={clearanceValues}
-        onChangeClearanceValues={setClearanceValues}
+        onChangeClearanceValues={(values) => {
+          setClearanceValues(values);
+          setDistanceSource("manual");
+        }}
+        distanceSource={distanceSource}
       />
       <LidarReadinessCard
         manualModeActive={true}
-        onApplyTestReading={setClearanceValues}
+        distanceSource={distanceSource}
+        onApplyTestReading={(values) => {
+          setClearanceValues(values);
+          setDistanceSource("lidar");
+        }}
+        onClearTestReading={() => {
+          setClearanceValues({
+            left: "",
+            right: "",
+            rear: "",
+            roof: "",
+          });
+          setDistanceSource("manual");
+        }}
       />
       <GuidanceCard
         currentStep={currentStep}
@@ -465,6 +484,7 @@ export default function Index() {
         campsiteType={campsiteType}
         parkingType={parkingType}
         clearanceValues={clearanceValues}
+        distanceSource={distanceSource}
       />
       <AppFooterDisclaimer />
     </ScrollView>

@@ -13,6 +13,7 @@ import {
 import { CurrentCoachModeCard } from "../components/CurrentCoachModeCard";
 import { GuidanceCard } from "../components/GuidanceCard";
 import { HowToUseCard } from "../components/HowToUseCard";
+import { LidarReadinessCard } from "../components/LidarReadinessCard";
 import { ObstacleDistanceInputCard } from "../components/ObstacleDistanceInputCard";
 import { ParkingTypeSelector } from "../components/ParkingTypeSelector";
 import { ReadyToBackChecklistCard } from "../components/ReadyToBackChecklistCard";
@@ -444,6 +445,10 @@ export default function Index() {
         obstacles={obstacles}
         clearanceValues={clearanceValues}
         onChangeClearanceValues={setClearanceValues}
+      />
+      <LidarReadinessCard
+        manualModeActive={true}
+        onApplyTestReading={setClearanceValues}
       />
       <GuidanceCard
         currentStep={currentStep}

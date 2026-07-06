@@ -27,6 +27,8 @@ import {
 } from "../components/SiteObstacleSelector";
 import { ParkingType, guidanceByType } from "../constants/parkingGuidance";
 import { ClearanceValues } from "../types/clearance";
+import { DistanceSource } from "../types/lidar";
+
 const RIG_SETUP_STORAGE_KEY = "rvParkingRigSetup";
 
 type SavedRigSetup = {
@@ -150,8 +152,14 @@ export default function Index() {
     rear: "",
     roof: "",
   });
+
   const [distanceSource, setDistanceSource] =
     useState<DistanceSource>("manual");
+
+  const [stopRecoveryConfirmed, setStopRecoveryConfirmed] = useState(false);
+  const handleStopRecoveryConfirmedChange = (value: boolean) => {
+    setStopRecoveryConfirmed(value);
+  };
   useEffect(() => {
     async function loadSavedObstacles() {
       try {
@@ -451,13 +459,18 @@ export default function Index() {
           setDistanceSource("manual");
         }}
         distanceSource={distanceSource}
+        stopRecoveryConfirmed={stopRecoveryConfirmed}
+        onChangeStopRecoveryConfirmed={setStopRecoveryConfirmed}
       />
       <LidarReadinessCard
         manualModeActive={true}
+        clearanceValues={clearanceValues}
         distanceSource={distanceSource}
+        stopRecoveryConfirmed={stopRecoveryConfirmed}
         onApplyTestReading={(values) => {
           setClearanceValues(values);
           setDistanceSource("lidar");
+          setStopRecoveryConfirmed(false);
         }}
         onClearTestReading={() => {
           setClearanceValues({
@@ -467,8 +480,10 @@ export default function Index() {
             roof: "",
           });
           setDistanceSource("manual");
+          setStopRecoveryConfirmed(false);
         }}
       />
+
       <GuidanceCard
         currentStep={currentStep}
         stepIndex={safeStepIndex}
@@ -485,6 +500,7 @@ export default function Index() {
         parkingType={parkingType}
         clearanceValues={clearanceValues}
         distanceSource={distanceSource}
+        stopRecoveryConfirmed={stopRecoveryConfirmed}
       />
       <AppFooterDisclaimer />
     </ScrollView>

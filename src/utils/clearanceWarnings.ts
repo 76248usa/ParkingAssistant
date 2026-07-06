@@ -96,14 +96,34 @@ export function getSpecificWarningReason(items: ClearanceItem[]) {
   } inches. Continue slowly and keep checking mirrors.`;
 }
 
-export function getVoiceWarning(level: ClearanceLevel, warningReason: string) {
+export function getRecommendedAction(level: ClearanceLevel) {
   if (level === "stop") {
-    return `Stop. ${warningReason}`;
+    return "Stop immediately. Get out and inspect before moving.";
   }
 
   if (level === "caution") {
-    return `Caution. ${warningReason}`;
+    return "Move in inches, not feet. Watch the closest side.";
   }
 
-  return `Clearance check. ${warningReason}`;
+  return "Continue slowly and keep checking mirrors.";
+}
+
+export function getVoiceWarning(
+  level: ClearanceLevel,
+  warningReason: string,
+  recommendedAction?: string,
+) {
+  const actionText = recommendedAction
+    ? ` Recommended action: ${recommendedAction}`
+    : "";
+
+  if (level === "stop") {
+    return `Stop. ${warningReason}${actionText}`;
+  }
+
+  if (level === "caution") {
+    return `Caution. ${warningReason}${actionText}`;
+  }
+
+  return `Clearance looks safe. ${warningReason}${actionText}`;
 }

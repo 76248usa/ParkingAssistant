@@ -7,6 +7,7 @@ import {
   ClearanceItem,
   getClearanceLevel,
   getLevelStyles,
+  getRecommendedAction,
   getSpecificWarningReason,
   getVoiceWarning,
   parseDistance,
@@ -23,6 +24,7 @@ type Props = {
   parkingType: string;
   clearanceValues: ClearanceValues;
   distanceSource: DistanceSource;
+  stopRecoveryConfirmed: boolean;
 };
 
 export function SmartNextMoveCard({
@@ -35,6 +37,7 @@ export function SmartNextMoveCard({
   parkingType,
   clearanceValues,
   distanceSource,
+  stopRecoveryConfirmed,
 }: Props) {
   const clearanceItems: ClearanceItem[] = [
     {
@@ -77,7 +80,7 @@ export function SmartNextMoveCard({
 
   const clearanceStyles = getLevelStyles(clearanceWorstLevel);
   const clearanceReason = getSpecificWarningReason(clearanceItems);
-
+  const recommendedAction = getRecommendedAction(clearanceWorstLevel);
   const distanceSourceLabel =
     distanceSource === "lidar" ? "Test LiDAR Reading" : "Manual Entry";
 
@@ -141,7 +144,11 @@ export function SmartNextMoveCard({
   const speakDistanceWarning = async () => {
     if (!voiceEnabled || !hasAnyClearanceValue) return;
 
-    const voiceWarning = getVoiceWarning(clearanceWorstLevel, clearanceReason);
+    const voiceWarning = getVoiceWarning(
+      clearanceWorstLevel,
+      clearanceReason,
+      recommendedAction,
+    );
 
     try {
       await Speech.stop();
@@ -319,19 +326,137 @@ export function SmartNextMoveCard({
           </Text>
 
           {clearanceWorstLevel === "stop" ? (
+            <View
+              style={{
+                marginTop: 8,
+                padding: 10,
+                borderRadius: 12,
+                backgroundColor: "rgba(255,255,255,0.65)",
+                borderWidth: 1,
+                borderColor: clearanceStyles.borderColor,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: "900",
+                  color: clearanceStyles.textColor,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.4,
+                }}
+              >
+                STOP Recovery Coaching
+              </Text>
+              <View
+                style={{
+                  alignSelf: "flex-start",
+                  marginTop: 7,
+                  paddingVertical: 4,
+                  paddingHorizontal: 8,
+                  borderRadius: 999,
+                  backgroundColor: stopRecoveryConfirmed
+                    ? "#dcfce7"
+                    : "#fee2e2",
+                  borderWidth: 1,
+                  borderColor: stopRecoveryConfirmed ? "#22c55e" : "#ef4444",
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 10,
+                    fontWeight: "900",
+                    color: stopRecoveryConfirmed ? "#166534" : "#991b1b",
+                  }}
+                >
+                  Recovery Status:{" "}
+                  {stopRecoveryConfirmed
+                    ? "Check Confirmed"
+                    : "Not Checked Yet"}
+                </Text>
+              </View>
+              <Text
+                style={{
+                  marginTop: 5,
+                  fontSize: 12,
+                  fontWeight: "800",
+                  color: clearanceStyles.textColor,
+                  lineHeight: 17,
+                }}
+              >
+                1. Hold position.
+              </Text>
+
+              <Text
+                style={{
+                  marginTop: 4,
+                  fontSize: 12,
+                  fontWeight: "800",
+                  color: clearanceStyles.textColor,
+                  lineHeight: 17,
+                }}
+              >
+                2. Get out and inspect the closest obstacle.
+              </Text>
+
+              <Text
+                style={{
+                  marginTop: 4,
+                  fontSize: 12,
+                  fontWeight: "800",
+                  color: clearanceStyles.textColor,
+                  lineHeight: 17,
+                }}
+              >
+                3. Pull forward slowly if the gap is still tight.
+              </Text>
+
+              <Text
+                style={{
+                  marginTop: 4,
+                  fontSize: 12,
+                  fontWeight: "800",
+                  color: clearanceStyles.textColor,
+                  lineHeight: 17,
+                }}
+              >
+                4. Re-check before backing again.
+              </Text>
+            </View>
+          ) : null}
+          <View
+            style={{
+              marginTop: 8,
+              padding: 10,
+              borderRadius: 12,
+              backgroundColor: "rgba(255,255,255,0.55)",
+              borderWidth: 1,
+              borderColor: clearanceStyles.borderColor,
+            }}
+          >
             <Text
               style={{
-                marginTop: 6,
+                fontSize: 11,
+                fontWeight: "900",
+                color: clearanceStyles.textColor,
+                textTransform: "uppercase",
+                letterSpacing: 0.4,
+              }}
+            >
+              Recommended Action
+            </Text>
+
+            <Text
+              style={{
+                marginTop: 4,
                 fontSize: 12,
                 fontWeight: "800",
                 color: clearanceStyles.textColor,
                 lineHeight: 17,
               }}
             >
-              Do not continue backing until you have checked the obstacle and
-              confirmed clearance.
+              {recommendedAction}
             </Text>
-          ) : null}
+          </View>
 
           {voiceEnabled ? (
             <TouchableOpacity

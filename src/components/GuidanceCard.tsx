@@ -46,6 +46,7 @@ type Props = {
   parkingType: ParkingType;
   clearanceValues: ClearanceValues;
   distanceSource: DistanceSource;
+  stopRecoveryConfirmed: boolean;
 };
 
 export function GuidanceCard({
@@ -64,6 +65,7 @@ export function GuidanceCard({
   campsiteType,
   clearanceValues,
   distanceSource,
+  stopRecoveryConfirmed,
 }: Props) {
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [practiceAction, setPracticeAction] = useState<PracticeAction>("idle");
@@ -1128,6 +1130,7 @@ export function GuidanceCard({
           parkingType={parkingType}
           clearanceValues={clearanceValues}
           distanceSource={distanceSource}
+          stopRecoveryConfirmed={stopRecoveryConfirmed}
         />
 
         <RecoveryCoachCard

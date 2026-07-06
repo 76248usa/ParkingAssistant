@@ -22,6 +22,8 @@ type Props = {
   clearanceValues: ClearanceValues;
   onChangeClearanceValues: (values: ClearanceValues) => void;
   distanceSource: DistanceSource;
+  stopRecoveryConfirmed: boolean;
+  onChangeStopRecoveryConfirmed: (value: boolean) => void;
 };
 
 export function ObstacleDistanceInputCard({
@@ -30,6 +32,8 @@ export function ObstacleDistanceInputCard({
   clearanceValues,
   onChangeClearanceValues,
   distanceSource,
+  stopRecoveryConfirmed,
+  onChangeStopRecoveryConfirmed,
 }: Props) {
   const [expanded, setExpanded] = useState(true);
   const lastAutoSpokenStopReasonRef = useRef<string | null>(null);
@@ -81,6 +85,12 @@ export function ObstacleDistanceInputCard({
       value: roofValue,
     },
   ];
+
+  const clearanceLevels = clearanceItems.map((item) =>
+    getClearanceLevel(item.value),
+  );
+
+  const hasStopClearance = clearanceLevels.includes("stop");
 
   const [autoVoiceAlertsEnabled, setAutoVoiceAlertsEnabled] = useState(true);
   useEffect(() => {
@@ -216,11 +226,13 @@ export function ObstacleDistanceInputCard({
         </View>
       </TouchableOpacity>
 
-      {expanded ? (
+      {expanded || hasStopClearance ? (
         <>
           <DistanceWarningSummaryCard
             clearanceItems={clearanceItems}
             distanceSource={distanceSource}
+            stopRecoveryConfirmed={stopRecoveryConfirmed}
+            onChangeStopRecoveryConfirmed={onChangeStopRecoveryConfirmed}
           />
           <TouchableOpacity
             onPress={async () => {

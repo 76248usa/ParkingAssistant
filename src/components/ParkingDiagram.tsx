@@ -444,57 +444,6 @@ function getRoadStyle(campsiteType: CampsiteType) {
   };
 }
 
-function getTrackingOverlayPositions(
-  pose: Pose,
-  backingSide: "left" | "right",
-  stepIndex: number,
-) {
-  const isLeft = backingSide === "left";
-
-  const rearSwingVisible = stepIndex >= 1 && stepIndex <= 3;
-  const insideTrackingVisible = stepIndex >= 1 && stepIndex <= 4;
-
-  const trailerLeft = pose.trailerLeft;
-  const trailerTop = pose.trailerTop;
-  const trailerRotation = pose.trailerRotation;
-
-  return {
-    rearSwingVisible,
-    insideTrackingVisible,
-
-    // Orange: rear/outside swing area, anchored to trailerTop
-    rearSwing: {
-      left: isLeft
-        ? trailerLeft + TRAILER_WIDTH - 8
-        : trailerLeft - TRAILER_WIDTH + 8,
-      top: trailerTop + 4,
-      width: TRAILER_WIDTH,
-      height: TRAILER_HEIGHT + 8,
-      rotation: trailerRotation,
-    },
-
-    // Blue: inside tracking area, anchored to trailerTop
-    insideTracking: {
-      left: isLeft ? trailerLeft + 22 : trailerLeft - 10,
-      top: trailerTop + TRAILER_HEIGHT - 4,
-      width: TRAILER_WIDTH - 8,
-      height: 18,
-      rotation: trailerRotation,
-    },
-
-    rearSwingLabel: {
-      left: isLeft
-        ? trailerLeft + TRAILER_WIDTH - 2
-        : trailerLeft - TRAILER_WIDTH + 4,
-      top: trailerTop - 18,
-    },
-
-    insideTrackingLabel: {
-      left: isLeft ? trailerLeft + 18 : trailerLeft - 14,
-      top: trailerTop + TRAILER_HEIGHT + 16,
-    },
-  };
-}
 export function ParkingDiagram({
   stepIndex,
   backingSide,
@@ -715,11 +664,6 @@ export function ParkingDiagram({
   const guideDots = getGuideDots(backingSide);
   const obstacleItems = getObstacleElements(obstacles, parkingSpace);
 
-  const trackingOverlay = getTrackingOverlayPositions(
-    pose,
-    backingSide,
-    stepIndex,
-  );
   const trailerRotation = pose.trailerRotation + simulatedTrailerAngle * 0.35;
   const truckRotation = pose.truckRotation + simulatedTruckAngle * 0.35;
   // const canvasHeight = drivingView
@@ -876,101 +820,7 @@ export function ParkingDiagram({
             {getTargetLabel(campsiteType)}
           </Text>
         </View>
-        {/* Rear swing warning zone */}
-        {trackingOverlay.rearSwingVisible ? (
-          <>
-            <View
-              style={{
-                position: "absolute",
-                left: trackingOverlay.rearSwing.left,
-                top: trackingOverlay.rearSwing.top,
-                width: trackingOverlay.rearSwing.width,
-                height: trackingOverlay.rearSwing.height,
-                borderRadius: 999,
-                backgroundColor: "#fed7aa",
-                borderWidth: 2,
-                borderColor: "#f97316",
-                zIndex: 8,
-                opacity: 0.75,
-                transform: [
-                  { rotate: `${trackingOverlay.rearSwing.rotation}deg` },
-                ],
-              }}
-            />
 
-            <View
-              style={{
-                position: "absolute",
-                left: trackingOverlay.rearSwingLabel.left,
-                top: trackingOverlay.rearSwingLabel.top,
-                paddingVertical: 4,
-                paddingHorizontal: 7,
-                borderRadius: 999,
-                backgroundColor: "#fff7ed",
-                borderWidth: 1,
-                borderColor: "#fdba74",
-              }}
-            >
-              <Text
-                style={{
-                  fontSize: 9,
-                  fontWeight: "900",
-                  color: "#9a3412",
-                }}
-              >
-                Rear swing
-              </Text>
-            </View>
-          </>
-        ) : null}
-
-        {/* Inside tracking line */}
-        {trackingOverlay.insideTrackingVisible ? (
-          <>
-            <View
-              style={{
-                position: "absolute",
-                left: trackingOverlay.insideTracking.left,
-                top: trackingOverlay.insideTracking.top,
-                width: trackingOverlay.insideTracking.width,
-                height: trackingOverlay.insideTracking.height,
-                borderRadius: 999,
-                backgroundColor: "#bfdbfe",
-                borderWidth: 2,
-                borderColor: "#2563eb",
-                zIndex: 8,
-                opacity: 0.72,
-                transform: [
-                  { rotate: `${trackingOverlay.insideTracking.rotation}deg` },
-                ],
-              }}
-            />
-
-            <View
-              style={{
-                position: "absolute",
-                left: trackingOverlay.insideTrackingLabel.left,
-                top: trackingOverlay.insideTrackingLabel.top,
-                paddingVertical: 4,
-                paddingHorizontal: 7,
-                borderRadius: 999,
-                backgroundColor: "#eff6ff",
-                borderWidth: 1,
-                borderColor: "#93c5fd",
-              }}
-            >
-              <Text
-                style={{
-                  fontSize: 9,
-                  fontWeight: "900",
-                  color: "#1d4ed8",
-                }}
-              >
-                Inside tracking
-              </Text>
-            </View>
-          </>
-        ) : null}
         {/* Parking target center guide */}
         <View
           style={{

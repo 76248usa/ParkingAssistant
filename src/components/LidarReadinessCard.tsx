@@ -2,13 +2,26 @@ import React, { useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { ClearanceValues } from "../types/clearance";
 import { DistanceSource, LidarClearanceReading } from "../types/lidar";
+import {
+  ClearanceItem,
+  getClearanceLevel,
+  getLevelStyles,
+  getSpecificWarningReason,
+  parseDistance,
+} from "../utils/clearanceWarnings";
+import {
+  createManualModeBridgeResult,
+  createNotConnectedBridgeResult,
+  createTestLidarBridgeResult,
+  LidarSensorStatus,
+} from "../utils/lidarSensorBridge";
 
-import { lidarReadingToClearanceValues } from "../utils/lidarToClearanceValues";
 type Props = {
   manualModeActive?: boolean;
   distanceSource: DistanceSource;
+  clearanceValues: ClearanceValues;
+  stopRecoveryConfirmed: boolean;
   onApplyTestReading?: (values: ClearanceValues) => void;
-
   onClearTestReading?: () => void;
 };
 
@@ -17,10 +30,75 @@ type ChecklistStatus = "done" | "current" | "future";
 export function LidarReadinessCard({
   manualModeActive = true,
   distanceSource,
+  clearanceValues,
+  stopRecoveryConfirmed,
   onApplyTestReading,
   onClearTestReading,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
+
+  const [bridgeStatus, setBridgeStatus] =
+    useState<LidarSensorStatus>("manual-mode");
+
+  const [bridgeMessage, setBridgeMessage] = useState(
+    createManualModeBridgeResult().message,
+  );
+
+  const bridgeStatusLabel =
+    bridgeStatus === "test-mode"
+      ? "Test Mode"
+      : bridgeStatus === "not-connected"
+        ? "Not Connected"
+        : bridgeStatus === "not-supported"
+          ? "Not Supported"
+          : bridgeStatus === "real-lidar-ready"
+            ? "Real LiDAR Ready"
+            : bridgeStatus === "reading"
+              ? "Reading"
+              : "Manual Mode";
+
+  const currentClearanceItems: ClearanceItem[] = [
+    {
+      key: "left",
+      label: "Left side clearance",
+      value: parseDistance(clearanceValues.left),
+    },
+    {
+      key: "right",
+      label: "Right side clearance",
+      value: parseDistance(clearanceValues.right),
+    },
+    {
+      key: "rear",
+      label: "Rear clearance",
+      value: parseDistance(clearanceValues.rear),
+    },
+    {
+      key: "roof",
+      label: "Roof / branch clearance",
+      value: parseDistance(clearanceValues.roof),
+    },
+  ];
+
+  const hasCurrentClearanceValue =
+    clearanceValues.left.trim() !== "" ||
+    clearanceValues.right.trim() !== "" ||
+    clearanceValues.rear.trim() !== "" ||
+    clearanceValues.roof.trim() !== "";
+
+  const currentLevels = currentClearanceItems.map((item) =>
+    getClearanceLevel(item.value),
+  );
+
+  const currentWorstLevel = currentLevels.includes("stop")
+    ? "stop"
+    : currentLevels.includes("caution")
+      ? "caution"
+      : "safe";
+
+  const currentLevelStyles = getLevelStyles(currentWorstLevel);
+  const currentWarningReason = getSpecificWarningReason(currentClearanceItems);
+
   const applyTestLidarReading = (readingType: "safe" | "caution" | "stop") => {
     const testReading: LidarClearanceReading =
       readingType === "safe"
@@ -50,10 +128,32 @@ export function LidarReadinessCard({
               timestamp: Date.now(),
             };
 
-    const values = lidarReadingToClearanceValues(testReading);
+    const bridgeResult = createTestLidarBridgeResult(testReading);
 
-    onApplyTestReading?.(values);
+    setBridgeStatus(bridgeResult.status);
+    setBridgeMessage(bridgeResult.message);
+
+    if (bridgeResult.clearanceValues) {
+      onApplyTestReading?.(bridgeResult.clearanceValues);
+    }
   };
+
+  const checkRealLidarAvailability = () => {
+    const bridgeResult = createNotConnectedBridgeResult();
+
+    setBridgeStatus(bridgeResult.status);
+    setBridgeMessage(bridgeResult.message);
+  };
+
+  const clearTestLidarReading = () => {
+    const manualResult = createManualModeBridgeResult();
+
+    setBridgeStatus(manualResult.status);
+    setBridgeMessage(manualResult.message);
+
+    onClearTestReading?.();
+  };
+
   return (
     <View
       style={{
@@ -90,6 +190,56 @@ export function LidarReadinessCard({
               LiDAR Distance Assist
             </Text>
 
+            <View
+              style={{
+                alignSelf: "flex-start",
+                marginTop: 6,
+                paddingVertical: 4,
+                paddingHorizontal: 8,
+                borderRadius: 999,
+                backgroundColor:
+                  bridgeStatus === "test-mode"
+                    ? "#ecfeff"
+                    : bridgeStatus === "not-connected"
+                      ? "#fff7ed"
+                      : "#f1f5f9",
+                borderWidth: 1,
+                borderColor:
+                  bridgeStatus === "test-mode"
+                    ? "#06b6d4"
+                    : bridgeStatus === "not-connected"
+                      ? "#fb923c"
+                      : "#cbd5e1",
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: "900",
+                  color:
+                    bridgeStatus === "test-mode"
+                      ? "#0e7490"
+                      : bridgeStatus === "not-connected"
+                        ? "#9a3412"
+                        : "#475569",
+                }}
+              >
+                LiDAR Bridge: {bridgeStatusLabel}
+              </Text>
+            </View>
+
+            <Text
+              style={{
+                marginTop: 5,
+                fontSize: 11,
+                fontWeight: "700",
+                color: "#64748b",
+                lineHeight: 15,
+              }}
+            >
+              {bridgeMessage}
+            </Text>
+
             <Text
               style={{
                 marginTop: 4,
@@ -103,6 +253,7 @@ export function LidarReadinessCard({
                 ? "Manual distance mode is active. The app is now prepared for future LiDAR readings."
                 : "LiDAR distance assist placeholder."}
             </Text>
+
             <View
               style={{
                 alignSelf: "flex-start",
@@ -180,6 +331,7 @@ export function LidarReadinessCard({
               update those same distance values automatically.
             </Text>
           </View>
+
           <View style={{ marginTop: 12, gap: 8 }}>
             <Text
               style={{
@@ -279,9 +431,121 @@ export function LidarReadinessCard({
               SAFE uses all clearances above 36 inches. CAUTION uses right side
               30 inches. STOP uses rear 12 inches.
             </Text>
+
+            {hasCurrentClearanceValue ? (
+              <View
+                style={{
+                  marginTop: 10,
+                  padding: 10,
+                  borderRadius: 12,
+                  backgroundColor: currentLevelStyles.backgroundColor,
+                  borderWidth: 1,
+                  borderColor: currentLevelStyles.borderColor,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: "900",
+                    color: currentLevelStyles.textColor,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.4,
+                    textAlign: "center",
+                  }}
+                >
+                  Current Distance Status
+                </Text>
+
+                <Text
+                  style={{
+                    marginTop: 5,
+                    fontSize: 13,
+                    fontWeight: "900",
+                    color: currentLevelStyles.textColor,
+                    textAlign: "center",
+                    lineHeight: 18,
+                  }}
+                >
+                  {currentLevelStyles.label}: {currentWarningReason}
+                </Text>
+
+                <Text
+                  style={{
+                    marginTop: 5,
+                    fontSize: 11,
+                    fontWeight: "800",
+                    color: currentLevelStyles.textColor,
+                    textAlign: "center",
+                  }}
+                >
+                  Source:{" "}
+                  {distanceSource === "lidar"
+                    ? "Test LiDAR Reading"
+                    : "Manual Entry"}
+                </Text>
+
+                {currentWorstLevel === "stop" ? (
+                  <View
+                    style={{
+                      alignSelf: "center",
+                      marginTop: 7,
+                      paddingVertical: 4,
+                      paddingHorizontal: 8,
+                      borderRadius: 999,
+                      backgroundColor: stopRecoveryConfirmed
+                        ? "#dcfce7"
+                        : "#fee2e2",
+                      borderWidth: 1,
+                      borderColor: stopRecoveryConfirmed
+                        ? "#22c55e"
+                        : "#ef4444",
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 10,
+                        fontWeight: "900",
+                        color: stopRecoveryConfirmed ? "#166534" : "#991b1b",
+                      }}
+                    >
+                      Recovery Status:{" "}
+                      {stopRecoveryConfirmed
+                        ? "Check Confirmed"
+                        : "Not Checked Yet"}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+
+            <TouchableOpacity
+              onPress={checkRealLidarAvailability}
+              activeOpacity={0.85}
+              style={{
+                marginTop: 10,
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+                borderRadius: 12,
+                backgroundColor: "#f8fafc",
+                borderWidth: 1,
+                borderColor: "#94a3b8",
+              }}
+            >
+              <Text
+                style={{
+                  color: "#334155",
+                  textAlign: "center",
+                  fontSize: 13,
+                  fontWeight: "900",
+                }}
+              >
+                Check Real LiDAR Availability
+              </Text>
+            </TouchableOpacity>
           </View>
+
           <TouchableOpacity
-            onPress={onClearTestReading}
+            onPress={clearTestLidarReading}
             activeOpacity={0.85}
             style={{
               marginTop: 10,
@@ -304,18 +568,7 @@ export function LidarReadinessCard({
               Clear Test LiDAR Reading
             </Text>
           </TouchableOpacity>
-          <Text
-            style={{
-              marginTop: 6,
-              fontSize: 11,
-              fontWeight: "700",
-              color: "#64748b",
-              textAlign: "center",
-              lineHeight: 16,
-            }}
-          >
-            Inserts sample values: left 42, right 30, rear 12, roof 48 inches.
-          </Text>
+
           <View
             style={{
               marginTop: 12,
@@ -382,43 +635,71 @@ export function LidarReadinessCard({
               />
             </View>
           </View>
+
           <View style={{ marginTop: 12, gap: 8 }}>
             <LidarStatusRow
               label="LiDAR status"
-              value="Not connected yet"
-              status="planned"
+              value={
+                bridgeStatus === "not-connected"
+                  ? "Not connected yet"
+                  : bridgeStatus === "test-mode"
+                    ? "Test mode active"
+                    : "Manual mode"
+              }
+              status={bridgeStatus === "test-mode" ? "manual" : "planned"}
             />
 
             <LidarStatusRow
               label="Distance source"
-              value="Manual mode"
-              status="manual"
+              value={
+                distanceSource === "lidar"
+                  ? "Test LiDAR reading"
+                  : "Manual mode"
+              }
+              status={distanceSource === "lidar" ? "manual" : "planned"}
             />
 
             <LidarStatusRow
               label="Left side distance"
-              value="Manual entry"
+              value={
+                clearanceValues.left
+                  ? `${clearanceValues.left} in`
+                  : "Manual entry"
+              }
               status="manual"
             />
 
             <LidarStatusRow
               label="Right side distance"
-              value="Manual entry"
+              value={
+                clearanceValues.right
+                  ? `${clearanceValues.right} in`
+                  : "Manual entry"
+              }
               status="manual"
             />
 
             <LidarStatusRow
               label="Rear distance"
-              value="Manual entry"
+              value={
+                clearanceValues.rear
+                  ? `${clearanceValues.rear} in`
+                  : "Manual entry"
+              }
               status="manual"
             />
 
             <LidarStatusRow
               label="Roof / branch distance"
-              value="Manual entry"
+              value={
+                clearanceValues.roof
+                  ? `${clearanceValues.roof} in`
+                  : "Manual entry"
+              }
               status="manual"
             />
           </View>
+
           <View
             style={{
               marginTop: 12,
@@ -456,6 +737,7 @@ export function LidarReadinessCard({
               keep working without being rewritten.
             </Text>
           </View>
+
           <Text
             style={{
               marginTop: 10,

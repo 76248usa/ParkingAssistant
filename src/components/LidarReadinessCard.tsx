@@ -9,10 +9,13 @@ import {
   getSpecificWarningReason,
   parseDistance,
 } from "../utils/clearanceWarnings";
+
+import { LidarDeviceCapability } from "../types/lidarDevice";
 import {
+  checkRealLidarSupportPlaceholder,
   createManualModeBridgeResult,
-  createNotConnectedBridgeResult,
   createTestLidarBridgeResult,
+  getLidarDeviceCapabilityPlaceholder,
   LidarSensorStatus,
 } from "../utils/lidarSensorBridge";
 
@@ -43,6 +46,8 @@ export function LidarReadinessCard({
   const [bridgeMessage, setBridgeMessage] = useState(
     createManualModeBridgeResult().message,
   );
+  const [deviceCapability, setDeviceCapability] =
+    useState<LidarDeviceCapability | null>(null);
 
   const bridgeStatusLabel =
     bridgeStatus === "test-mode"
@@ -139,21 +144,22 @@ export function LidarReadinessCard({
   };
 
   const checkRealLidarAvailability = () => {
-    const bridgeResult = createNotConnectedBridgeResult();
+    const bridgeResult = checkRealLidarSupportPlaceholder();
+    const capabilityResult = getLidarDeviceCapabilityPlaceholder();
 
     setBridgeStatus(bridgeResult.status);
     setBridgeMessage(bridgeResult.message);
+    setDeviceCapability(capabilityResult);
   };
-
   const clearTestLidarReading = () => {
     const manualResult = createManualModeBridgeResult();
 
     setBridgeStatus(manualResult.status);
     setBridgeMessage(manualResult.message);
+    setDeviceCapability(null);
 
     onClearTestReading?.();
   };
-
   return (
     <View
       style={{
@@ -542,6 +548,85 @@ export function LidarReadinessCard({
                 Check Real LiDAR Availability
               </Text>
             </TouchableOpacity>
+            {deviceCapability ? (
+              <View
+                style={{
+                  marginTop: 10,
+                  padding: 10,
+                  borderRadius: 12,
+                  backgroundColor: "#fff7ed",
+                  borderWidth: 1,
+                  borderColor: "#fb923c",
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: "900",
+                    color: "#9a3412",
+                    textTransform: "uppercase",
+                    letterSpacing: 0.4,
+                    textAlign: "center",
+                  }}
+                >
+                  Device Capability
+                </Text>
+
+                <Text
+                  style={{
+                    marginTop: 5,
+                    fontSize: 13,
+                    fontWeight: "900",
+                    color: "#9a3412",
+                    textAlign: "center",
+                    lineHeight: 18,
+                  }}
+                >
+                  {deviceCapability.status === "unavailable-in-expo-go"
+                    ? "Unavailable in Expo Go"
+                    : deviceCapability.status}
+                </Text>
+
+                <Text
+                  style={{
+                    marginTop: 6,
+                    fontSize: 12,
+                    fontWeight: "800",
+                    color: "#9a3412",
+                    textAlign: "center",
+                    lineHeight: 17,
+                  }}
+                >
+                  {deviceCapability.message}
+                </Text>
+
+                <View
+                  style={{
+                    marginTop: 8,
+                    padding: 8,
+                    borderRadius: 10,
+                    backgroundColor: "rgba(255,255,255,0.65)",
+                    borderWidth: 1,
+                    borderColor: "#fed7aa",
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontWeight: "800",
+                      color: "#9a3412",
+                      textAlign: "center",
+                      lineHeight: 16,
+                    }}
+                  >
+                    Platform: {deviceCapability.platform.toUpperCase()}
+                    {"\n"}
+                    Development build required:{" "}
+                    {deviceCapability.requiresDevelopmentBuild ? "Yes" : "No"}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
           </View>
 
           <TouchableOpacity

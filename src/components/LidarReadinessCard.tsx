@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { ClearanceValues } from "../types/clearance";
 import { DistanceSource, LidarClearanceReading } from "../types/lidar";
+import { LidarDeviceCapability } from "../types/lidarDevice";
 import {
   ClearanceItem,
   getClearanceLevel,
@@ -9,8 +10,6 @@ import {
   getSpecificWarningReason,
   parseDistance,
 } from "../utils/clearanceWarnings";
-
-import { LidarDeviceCapability } from "../types/lidarDevice";
 import {
   checkRealLidarSupportPlaceholder,
   createManualModeBridgeResult,
@@ -18,6 +17,11 @@ import {
   getLidarDeviceCapabilityPlaceholder,
   LidarSensorStatus,
 } from "../utils/lidarSensorBridge";
+import {
+  checkRealLidarPreflight,
+  RealLidarPreflightResult,
+  requestRealLidarCameraPermission,
+} from "../utils/realLidarPreflight";
 
 type Props = {
   manualModeActive?: boolean;
@@ -48,6 +52,11 @@ export function LidarReadinessCard({
   );
   const [deviceCapability, setDeviceCapability] =
     useState<LidarDeviceCapability | null>(null);
+
+  const [realLidarPreflight, setRealLidarPreflight] =
+    useState<RealLidarPreflightResult | null>(null);
+
+  const [checkingRealLidar, setCheckingRealLidar] = useState(false);
 
   const bridgeStatusLabel =
     bridgeStatus === "test-mode"
@@ -159,6 +168,65 @@ export function LidarReadinessCard({
     setDeviceCapability(null);
 
     onClearTestReading?.();
+  };
+  const handleCheckRealLidarReadiness = async () => {
+    try {
+      setCheckingRealLidar(true);
+
+      const result = await checkRealLidarPreflight();
+
+      setRealLidarPreflight(result);
+      setBridgeStatus("not-connected");
+      setBridgeMessage(result.message);
+    } catch (error) {
+      setRealLidarPreflight({
+        status: "unknown",
+        platform: "unknown",
+        deviceName: null,
+        isDevice: false,
+        cameraPermission: "unknown",
+        canContinueToNativeLidarCheck: false,
+        message:
+          "Real LiDAR readiness could not be checked. Manual and Test LiDAR modes are still available.",
+      });
+
+      setBridgeStatus("not-connected");
+      setBridgeMessage(
+        "Real LiDAR readiness could not be checked. Manual and Test LiDAR modes are still available.",
+      );
+    } finally {
+      setCheckingRealLidar(false);
+    }
+  };
+
+  const handleRequestRealLidarCameraPermission = async () => {
+    try {
+      setCheckingRealLidar(true);
+
+      const result = await requestRealLidarCameraPermission();
+
+      setRealLidarPreflight(result);
+      setBridgeStatus("not-connected");
+      setBridgeMessage(result.message);
+    } catch (error) {
+      setRealLidarPreflight({
+        status: "unknown",
+        platform: "unknown",
+        deviceName: null,
+        isDevice: false,
+        cameraPermission: "unknown",
+        canContinueToNativeLidarCheck: false,
+        message:
+          "Camera permission could not be requested. You can still use Manual and Test LiDAR modes.",
+      });
+
+      setBridgeStatus("not-connected");
+      setBridgeMessage(
+        "Camera permission could not be requested. You can still use Manual and Test LiDAR modes.",
+      );
+    } finally {
+      setCheckingRealLidar(false);
+    }
   };
   return (
     <View
@@ -524,30 +592,148 @@ export function LidarReadinessCard({
               </View>
             ) : null}
 
-            <TouchableOpacity
-              onPress={checkRealLidarAvailability}
-              activeOpacity={0.85}
+            <View
               style={{
-                marginTop: 10,
-                paddingVertical: 10,
-                paddingHorizontal: 12,
+                marginTop: 12,
+                padding: 10,
                 borderRadius: 12,
                 backgroundColor: "#f8fafc",
                 borderWidth: 1,
-                borderColor: "#94a3b8",
+                borderColor: "#cbd5e1",
               }}
             >
               <Text
                 style={{
-                  color: "#334155",
-                  textAlign: "center",
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: "900",
+                  color: "#334155",
+                  textTransform: "uppercase",
+                  letterSpacing: 0.4,
+                  textAlign: "center",
                 }}
               >
-                Check Real LiDAR Availability
+                Real LiDAR Assist
               </Text>
-            </TouchableOpacity>
+
+              <Text
+                style={{
+                  marginTop: 6,
+                  fontSize: 12,
+                  fontWeight: "800",
+                  color: "#475569",
+                  textAlign: "center",
+                  lineHeight: 17,
+                }}
+              >
+                Check whether this device is ready for future real LiDAR
+                distance sensing.
+              </Text>
+
+              <TouchableOpacity
+                onPress={handleCheckRealLidarReadiness}
+                disabled={checkingRealLidar}
+                style={{
+                  marginTop: 10,
+                  paddingVertical: 10,
+                  paddingHorizontal: 12,
+                  borderRadius: 12,
+                  backgroundColor: checkingRealLidar ? "#94a3b8" : "#0f172a",
+                  alignItems: "center",
+                }}
+              >
+                <Text
+                  style={{
+                    color: "white",
+                    fontSize: 12,
+                    fontWeight: "900",
+                  }}
+                >
+                  {checkingRealLidar
+                    ? "Checking..."
+                    : "Check Real LiDAR Readiness"}
+                </Text>
+              </TouchableOpacity>
+
+              {realLidarPreflight?.status === "needs-camera-permission" ? (
+                <TouchableOpacity
+                  onPress={handleRequestRealLidarCameraPermission}
+                  disabled={checkingRealLidar}
+                  style={{
+                    marginTop: 8,
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                    borderRadius: 12,
+                    backgroundColor: "#2563eb",
+                    alignItems: "center",
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: "white",
+                      fontSize: 12,
+                      fontWeight: "900",
+                    }}
+                  >
+                    Allow Camera for LiDAR Assist
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+
+              {realLidarPreflight ? (
+                <View
+                  style={{
+                    marginTop: 10,
+                    padding: 10,
+                    borderRadius: 10,
+                    backgroundColor:
+                      realLidarPreflight.status === "ready-for-native-check"
+                        ? "#dcfce7"
+                        : realLidarPreflight.status === "camera-denied"
+                          ? "#fee2e2"
+                          : "#fff7ed",
+                    borderWidth: 1,
+                    borderColor:
+                      realLidarPreflight.status === "ready-for-native-check"
+                        ? "#86efac"
+                        : realLidarPreflight.status === "camera-denied"
+                          ? "#fecaca"
+                          : "#fed7aa",
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: "900",
+                      color:
+                        realLidarPreflight.status === "ready-for-native-check"
+                          ? "#166534"
+                          : realLidarPreflight.status === "camera-denied"
+                            ? "#991b1b"
+                            : "#9a3412",
+                      textAlign: "center",
+                      lineHeight: 17,
+                    }}
+                  >
+                    {realLidarPreflight.message}
+                  </Text>
+
+                  <Text
+                    style={{
+                      marginTop: 6,
+                      fontSize: 11,
+                      fontWeight: "800",
+                      color: "#475569",
+                      textAlign: "center",
+                      lineHeight: 16,
+                    }}
+                  >
+                    Device: {realLidarPreflight.deviceName ?? "Unknown"}
+                    {"\n"}
+                    Camera permission: {realLidarPreflight.cameraPermission}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
             {deviceCapability ? (
               <View
                 style={{

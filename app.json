@@ -2,13 +2,18 @@
   "expo": {
     "name": "RVParkingAssistant",
     "slug": "RVParkingAssistant",
+
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "rvparkingassistant",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.elsabe.RVParkingAssistant",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -35,11 +40,23 @@
           }
         }
       ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "RV Assist needs camera access to prepare for future real LiDAR distance sensing."
+        }
+      ],
       "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "95a20862-99b5-463f-ad2c-b83232408406"
+      }
     }
   }
 }

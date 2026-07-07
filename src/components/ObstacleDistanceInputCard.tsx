@@ -226,7 +226,7 @@ export function ObstacleDistanceInputCard({
         </View>
       </TouchableOpacity>
 
-      {expanded || hasStopClearance ? (
+      {expanded || (hasStopClearance && !stopRecoveryConfirmed) ? (
         <>
           <DistanceWarningSummaryCard
             clearanceItems={clearanceItems}

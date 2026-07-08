@@ -18,6 +18,10 @@ import {
   LidarSensorStatus,
 } from "../utils/lidarSensorBridge";
 import {
+  checkNativeLidarAvailability,
+  NativeLidarAvailabilityResult,
+} from "../utils/nativeLidarAvailability";
+import {
   checkRealLidarPreflight,
   RealLidarPreflightResult,
   requestRealLidarCameraPermission,
@@ -57,7 +61,8 @@ export function LidarReadinessCard({
     useState<RealLidarPreflightResult | null>(null);
 
   const [checkingRealLidar, setCheckingRealLidar] = useState(false);
-
+  const [nativeLidarAvailability, setNativeLidarAvailability] =
+    useState<NativeLidarAvailabilityResult | null>(null);
   const bridgeStatusLabel =
     bridgeStatus === "test-mode"
       ? "Test Mode"
@@ -173,11 +178,26 @@ export function LidarReadinessCard({
     try {
       setCheckingRealLidar(true);
 
-      const result = await checkRealLidarPreflight();
+      const preflightResult = await checkRealLidarPreflight();
 
-      setRealLidarPreflight(result);
+      setRealLidarPreflight(preflightResult);
       setBridgeStatus("not-connected");
-      setBridgeMessage(result.message);
+      setBridgeMessage(preflightResult.message);
+
+      if (!preflightResult.canContinueToNativeLidarCheck) {
+        setNativeLidarAvailability(null);
+        return;
+      }
+
+      const nativeResult = await checkNativeLidarAvailability();
+
+      setNativeLidarAvailability(nativeResult);
+      setBridgeStatus(
+        nativeResult.status === "supported"
+          ? "real-lidar-ready"
+          : "not-connected",
+      );
+      setBridgeMessage(nativeResult.message);
     } catch (error) {
       setRealLidarPreflight({
         status: "unknown",
@@ -190,6 +210,7 @@ export function LidarReadinessCard({
           "Real LiDAR readiness could not be checked. Manual and Test LiDAR modes are still available.",
       });
 
+      setNativeLidarAvailability(null);
       setBridgeStatus("not-connected");
       setBridgeMessage(
         "Real LiDAR readiness could not be checked. Manual and Test LiDAR modes are still available.",
@@ -198,16 +219,30 @@ export function LidarReadinessCard({
       setCheckingRealLidar(false);
     }
   };
-
   const handleRequestRealLidarCameraPermission = async () => {
     try {
       setCheckingRealLidar(true);
 
-      const result = await requestRealLidarCameraPermission();
+      const preflightResult = await requestRealLidarCameraPermission();
 
-      setRealLidarPreflight(result);
+      setRealLidarPreflight(preflightResult);
       setBridgeStatus("not-connected");
-      setBridgeMessage(result.message);
+      setBridgeMessage(preflightResult.message);
+
+      if (!preflightResult.canContinueToNativeLidarCheck) {
+        setNativeLidarAvailability(null);
+        return;
+      }
+
+      const nativeResult = await checkNativeLidarAvailability();
+
+      setNativeLidarAvailability(nativeResult);
+      setBridgeStatus(
+        nativeResult.status === "supported"
+          ? "real-lidar-ready"
+          : "not-connected",
+      );
+      setBridgeMessage(nativeResult.message);
     } catch (error) {
       setRealLidarPreflight({
         status: "unknown",
@@ -220,6 +255,7 @@ export function LidarReadinessCard({
           "Camera permission could not be requested. You can still use Manual and Test LiDAR modes.",
       });
 
+      setNativeLidarAvailability(null);
       setBridgeStatus("not-connected");
       setBridgeMessage(
         "Camera permission could not be requested. You can still use Manual and Test LiDAR modes.",
@@ -348,7 +384,7 @@ export function LidarReadinessCard({
                   color: distanceSource === "lidar" ? "#0e7490" : "#475569",
                 }}
               >
-                Distance Source:{" "}
+                Distance Source:
                 {distanceSource === "lidar"
                   ? "Test LiDAR Reading"
                   : "Manual Entry"}
@@ -552,7 +588,7 @@ export function LidarReadinessCard({
                     textAlign: "center",
                   }}
                 >
-                  Source:{" "}
+                  Source:
                   {distanceSource === "lidar"
                     ? "Test LiDAR Reading"
                     : "Manual Entry"}
@@ -582,7 +618,7 @@ export function LidarReadinessCard({
                         color: stopRecoveryConfirmed ? "#166534" : "#991b1b",
                       }}
                     >
-                      Recovery Status:{" "}
+                      Recovery Status:
                       {stopRecoveryConfirmed
                         ? "Check Confirmed"
                         : "Not Checked Yet"}
@@ -614,7 +650,6 @@ export function LidarReadinessCard({
               >
                 Real LiDAR Assist
               </Text>
-
               <Text
                 style={{
                   marginTop: 6,
@@ -628,7 +663,6 @@ export function LidarReadinessCard({
                 Check whether this device is ready for future real LiDAR
                 distance sensing.
               </Text>
-
               <TouchableOpacity
                 onPress={handleCheckRealLidarReadiness}
                 disabled={checkingRealLidar}
@@ -653,7 +687,6 @@ export function LidarReadinessCard({
                     : "Check Real LiDAR Readiness"}
                 </Text>
               </TouchableOpacity>
-
               {realLidarPreflight?.status === "needs-camera-permission" ? (
                 <TouchableOpacity
                   onPress={handleRequestRealLidarCameraPermission}
@@ -678,7 +711,6 @@ export function LidarReadinessCard({
                   </Text>
                 </TouchableOpacity>
               ) : null}
-
               {realLidarPreflight ? (
                 <View
                   style={{
@@ -730,6 +762,77 @@ export function LidarReadinessCard({
                     Device: {realLidarPreflight.deviceName ?? "Unknown"}
                     {"\n"}
                     Camera permission: {realLidarPreflight.cameraPermission}
+                  </Text>
+                </View>
+              ) : null}
+              {nativeLidarAvailability ? (
+                <View
+                  style={{
+                    marginTop: 10,
+                    padding: 10,
+                    borderRadius: 10,
+                    backgroundColor:
+                      nativeLidarAvailability.status === "supported"
+                        ? "#dcfce7"
+                        : nativeLidarAvailability.status ===
+                            "native-module-missing"
+                          ? "#fff7ed"
+                          : "#fee2e2",
+                    borderWidth: 1,
+                    borderColor:
+                      nativeLidarAvailability.status === "supported"
+                        ? "#86efac"
+                        : nativeLidarAvailability.status ===
+                            "native-module-missing"
+                          ? "#fed7aa"
+                          : "#fecaca",
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: "900",
+                      color:
+                        nativeLidarAvailability.status === "supported"
+                          ? "#166534"
+                          : nativeLidarAvailability.status ===
+                              "native-module-missing"
+                            ? "#9a3412"
+                            : "#991b1b",
+                      textAlign: "center",
+                      lineHeight: 17,
+                    }}
+                  >
+                    {nativeLidarAvailability.message}
+                  </Text>
+
+                  <Text
+                    style={{
+                      marginTop: 6,
+                      fontSize: 11,
+                      fontWeight: "800",
+                      color: "#475569",
+                      textAlign: "center",
+                      lineHeight: 16,
+                    }}
+                  >
+                    AR world tracking:
+                    {nativeLidarAvailability.worldTrackingSupported
+                      ? "Yes"
+                      : "No"}
+                    {"\n"}
+                    Scene depth:
+                    {nativeLidarAvailability.sceneDepthSupported ? "Yes" : "No"}
+                    {"\n"}
+                    Smoothed scene depth:
+                    {nativeLidarAvailability.smoothedSceneDepthSupported
+                      ? "Yes"
+                      : "No"}
+                    {"\n"}
+                    Scene reconstruction:
+                    {nativeLidarAvailability.sceneReconstructionSupported
+                      ? "Yes"
+                      : "No"}
                   </Text>
                 </View>
               ) : null}
@@ -807,7 +910,7 @@ export function LidarReadinessCard({
                   >
                     Platform: {deviceCapability.platform.toUpperCase()}
                     {"\n"}
-                    Development build required:{" "}
+                    Development build required:
                     {deviceCapability.requiresDevelopmentBuild ? "Yes" : "No"}
                   </Text>
                 </View>

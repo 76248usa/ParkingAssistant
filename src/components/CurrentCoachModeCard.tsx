@@ -105,8 +105,7 @@ export function CurrentCoachModeCard({
           lineHeight: 17,
         }}
       >
-        {getScenarioLabel(scenario)} difficulty •{" "}
-        {getObstacleSummary(obstacles)}
+        {getScenarioLabel(scenario)} difficulty •{getObstacleSummary(obstacles)}
       </Text>
     </View>
   );

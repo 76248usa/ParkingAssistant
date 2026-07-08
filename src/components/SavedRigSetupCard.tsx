@@ -81,7 +81,7 @@ export function SavedRigSetupCard({
               color: "#64748b",
             }}
           >
-            {getBackingSideLabel(backingSide)} backing •{" "}
+            {getBackingSideLabel(backingSide)} backing •
             {getScenarioLabel(scenario)} difficulty
           </Text>
         </View>

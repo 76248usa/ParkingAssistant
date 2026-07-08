@@ -368,7 +368,7 @@ export function SmartNextMoveCard({
                     color: stopRecoveryConfirmed ? "#166534" : "#991b1b",
                   }}
                 >
-                  Recovery Status:{" "}
+                  Recovery Status:
                   {stopRecoveryConfirmed
                     ? "Check Confirmed"
                     : "Not Checked Yet"}

@@ -73,7 +73,7 @@ export function PracticeHistoryCard({ sessions }: Props) {
                 color: "#0f172a",
               }}
             >
-              {session.completedAt} — {getScenarioLabel(session.scenario)} /{" "}
+              {session.completedAt} — {getScenarioLabel(session.scenario)} /
               {getBackingSideLabel(session.backingSide)}
             </Text>
 
@@ -104,9 +104,9 @@ export function PracticeHistoryCard({ sessions }: Props) {
                 lineHeight: 17,
               }}
             >
-              Auto stops: {session.stats.autoStops} • Recoveries:{" "}
-              {session.stats.recoveryCompletions} • Pull-forwards:{" "}
-              {session.stats.pullForwards} • Steering corrections:{" "}
+              Auto stops: {session.stats.autoStops} • Recoveries:
+              {session.stats.recoveryCompletions} • Pull-forwards:
+              {session.stats.pullForwards} • Steering corrections:
               {session.stats.steeringCorrections}
             </Text>
           </View>

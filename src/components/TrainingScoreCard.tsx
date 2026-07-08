@@ -183,12 +183,12 @@ export function TrainingScoreCard({
         </Text>
 
         <Text style={{ marginTop: 4, fontSize: 12, color: "#475569" }}>
-          Auto stops: {sessionStats.autoStops}{" "}
+          Auto stops: {sessionStats.autoStops}
           {sessionStats.autoStops > 0 ? `(-${autoStopPenalty})` : ""}
         </Text>
 
         <Text style={{ marginTop: 4, fontSize: 12, color: "#475569" }}>
-          Pull-forward corrections: {sessionStats.pullForwards}{" "}
+          Pull-forward corrections: {sessionStats.pullForwards}
           {sessionStats.pullForwards > 0 ? `(-${pullForwardPenalty})` : ""}
         </Text>
 
@@ -198,7 +198,7 @@ export function TrainingScoreCard({
         </Text>
 
         <Text style={{ marginTop: 4, fontSize: 12, color: "#475569" }}>
-          Recoveries completed: {sessionStats.recoveryCompletions}{" "}
+          Recoveries completed: {sessionStats.recoveryCompletions}
           {recoveryBonus > 0 ? `(+${recoveryBonus})` : ""}
         </Text>
       </View>

@@ -292,7 +292,7 @@ export function ObstacleDistanceInputCard({
               lineHeight: 17,
             }}
           >
-            {parkingType === "pull-through" ? "Pull-through" : "Back-in"} •{" "}
+            {parkingType === "pull-through" ? "Pull-through" : "Back-in"}
             {obstacleText}
           </Text>
           <View style={{ marginTop: 12, gap: 10 }}>
